@@ -103,6 +103,7 @@ AGENT_OUTPUTS=$(cat <<OUTPUTS
   "suggested_reviewers": ${SUGGESTED_REVIEWERS}
 }
 OUTPUTS
+)
 export AGENT_OUTPUTS
 
 # Build summary

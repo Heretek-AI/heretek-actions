@@ -61,6 +61,7 @@ AGENT_OUTPUTS=$(cat <<OUTPUTS
   }
 }
 OUTPUTS
+)
 export AGENT_OUTPUTS
 
 write_envelope "ci-rust" "$STATUS" "$SUMMARY"

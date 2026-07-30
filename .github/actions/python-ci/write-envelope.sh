@@ -49,6 +49,7 @@ AGENT_OUTPUTS=$(cat <<OUTPUTS
   }
 }
 OUTPUTS
+)
 export AGENT_OUTPUTS
 
 write_envelope "ci-python" "$STATUS" "$SUMMARY"

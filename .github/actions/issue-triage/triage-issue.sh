@@ -160,6 +160,7 @@ AGENT_OUTPUTS=$(cat <<OUTPUTS
   "needs_more_info": $(echo "${LABELS_JSON}" | jq 'contains(["needs-more-info"])')
 }
 OUTPUTS
+)
 export AGENT_OUTPUTS
 
 SUMMARY="Issue #${ISSUE_NUMBER}: classified as ${LABELS[*]:-(uncategorized)} | priority: ${PRIORITY}"

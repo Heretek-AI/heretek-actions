@@ -87,6 +87,7 @@ AGENT_OUTPUTS=$(cat <<OUTPUTS
   "wait_timed_out": $( [ "$elapsed" -ge "$WAIT_MAX" ] && echo true || echo false )
 }
 OUTPUTS
+)
 export AGENT_OUTPUTS
 
 # Build suggestions

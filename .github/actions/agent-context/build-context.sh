@@ -183,7 +183,7 @@ scan_structure "$MAX_DEPTH" "${structure_tmp}/structure"
 TOP_FILES=$(head -30 "${structure_tmp}/structure.files" 2>/dev/null | jq -Rc '[inputs]' 2>/dev/null || echo "[]")
 TOP_DIRS=$(head -30 "${structure_tmp}/structure.dirs" 2>/dev/null | jq -Rc '[inputs]' 2>/dev/null || echo "[]")
 
-AGENT_OUTPUTS=$(cat <<OUTPUTS
+AGENT_OUTPUTS=$(cat <<'OUTPUTS' | envsubst 2>/dev/null || cat
 {
   "name": "${GITHUB_REPOSITORY#*/}",
   "owner": "${GITHUB_REPOSITORY_OWNER:-}",
@@ -207,6 +207,7 @@ AGENT_OUTPUTS=$(cat <<OUTPUTS
   "labels": ${LABELS:-"[]"}
 }
 OUTPUTS
+)
 export AGENT_OUTPUTS
 
 # Determine overall summary

@@ -159,6 +159,7 @@ AGENT_OUTPUTS=$(cat <<OUTPUTS
   "release_url": "${release_url:-}"
 }
 OUTPUTS
+)
 export AGENT_OUTPUTS
 export AGENT_RELEASE=$(cat <<RELEASE
 {
