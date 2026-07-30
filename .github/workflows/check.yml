@@ -112,7 +112,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: Heretek-AI/heretek-actions/.github/actions/rust-ci@v1
+      - uses: ./.github/actions/rust-ci
         with:
           toolchain: ${{ inputs.rust-toolchain }}
           enable-coverage: ${{ inputs.enable-coverage }}
@@ -132,7 +132,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: Heretek-AI/heretek-actions/.github/actions/js-ci@v1
+      - uses: ./.github/actions/js-ci
         with:
           node-version: ${{ inputs.node-version }}
 
@@ -150,7 +150,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: Heretek-AI/heretek-actions/.github/actions/python-ci@v1
+      - uses: ./.github/actions/python-ci
         with:
           python-version: ${{ inputs.python-version }}
 

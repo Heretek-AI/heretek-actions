@@ -17,7 +17,7 @@ jobs:
           fetch-depth: 0
 
       - name: "Run Review"
-        uses: Heretek-AI/heretek-actions/.github/actions/review@v1
+        uses: ./.github/actions/review
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 

@@ -17,7 +17,7 @@ jobs:
           fetch-depth: 0
 
       - name: "Generate PR Summary"
-        uses: Heretek-AI/heretek-actions/.github/actions/pr-summary@v1
+        uses: ./.github/actions/pr-summary
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 

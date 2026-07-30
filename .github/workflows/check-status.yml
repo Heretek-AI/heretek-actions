@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: "Watch Check Status"
-        uses: Heretek-AI/heretek-actions/.github/actions/check-status@v1
+        uses: ./.github/actions/check-status
         with:
           github-token: ${{ secrets.repo_token || secrets.GITHUB_TOKEN }}
           wait-for-completion: ${{ inputs.wait-for-completion }}

@@ -103,7 +103,7 @@ jobs:
           password: ${{ secrets.repo_token || secrets.GITHUB_TOKEN }}
 
       - name: "Run Release"
-        uses: Heretek-AI/heretek-actions/.github/actions/release@v1
+        uses: ./.github/actions/release
         with:
           release-type: ${{ inputs.release-type }}
           version: ${{ inputs.version }}

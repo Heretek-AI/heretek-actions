@@ -127,7 +127,7 @@ jobs:
           head_sha: ${{ github.event.pull_request.head.sha || steps.context.outputs.head_sha }}
 
       - name: "Build Agent Envelope"
-        uses: Heretek-AI/heretek-actions/.github/actions/ocr-envelope@v1
+        uses: ./.github/actions/ocr-envelope
         with:
           ocr-command: review
           ocr-result-file: .ocr/result.json
