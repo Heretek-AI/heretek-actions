@@ -57,13 +57,15 @@ runs:
 
     - name: "Validate Inputs"
       shell: bash
+      env:
+        LINTER_VERSION: ${{ inputs.linter-version }}
+        LINTER: ${{ inputs.linter }}
       run: |
-        VERSION="${{ inputs.linter-version }}"
+        VERSION="${LINTER_VERSION}"
         if [[ ! "${VERSION}" =~ ^v[0-9]+(\.[0-9]+)*(-[a-zA-Z0-9.]+)?$ && "${VERSION}" != "latest" ]]; then
           echo "::error::Invalid linter-version '${VERSION}'. Must match v<N>[.N...][-suffix] or 'latest'."
           exit 1
         fi
-        LINTER="${{ inputs.linter }}"
         if [[ "${LINTER}" != "megalinter" && "${LINTER}" != "super-linter" ]]; then
           echo "::error::Invalid linter '${LINTER}'. Must be 'megalinter' or 'super-linter'."
           exit 1
@@ -75,13 +77,14 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         MEGALINTER_CONFIG: ${{ inputs.config-file }}
+        LINTER_VERSION: ${{ inputs.linter-version }}
       run: |
-        echo "==> Running MegaLinter (${{ inputs.linter-version }})"
+        echo "==> Running MegaLinter (${LINTER_VERSION})"
         docker run --rm \
           -v "${GITHUB_WORKSPACE}:/tmp/lint" \
           -e MEGALINTER_CONFIG \
           -e GITHUB_TOKEN \
-          oxsecurity/megalinter:${{ inputs.linter-version }} \
+          oxsecurity/megalinter:${LINTER_VERSION} \
           2>&1 | tee .megalinter-stdout.log
 
     - name: "Upload Lint Reports"
