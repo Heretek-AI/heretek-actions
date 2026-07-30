@@ -24,6 +24,16 @@ write_envelope() {
   local created_at
   created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)"
 
+  # Ensure defaults for JSON variables.
+  # NOTE: Use separate if blocks, NOT :-{}/:-[]/:-null defaults in parameter expansion —
+  # bash interprets the first } after :- as closing the ${} expression, producing
+  # an extra literal } that corrupts the JSON (e.g. "outputs": {...}} instead of "outputs": {...}).
+  if [ -z "${AGENT_OUTPUTS:-}" ]; then AGENT_OUTPUTS='{}'; fi
+  if [ -z "${AGENT_SUGGESTIONS:-}" ]; then AGENT_SUGGESTIONS='[]'; fi
+  if [ -z "${AGENT_CHECKS:-}" ]; then AGENT_CHECKS='[]'; fi
+  if [ -z "${AGENT_FINDINGS:-}" ]; then AGENT_FINDINGS='[]'; fi
+  if [ -z "${AGENT_RELEASE:-}" ]; then AGENT_RELEASE='null'; fi
+
   # Build envelope — prefer jq, fall back to cat
   if command -v jq &>/dev/null && jq -n \
     --arg action "$action" \
@@ -32,11 +42,11 @@ write_envelope() {
     --arg summary "$summary" \
     --arg created_at "$created_at" \
     --arg duration_ms "${AGENT_DURATION_MS:-0}" \
-    --argjson outputs "${AGENT_OUTPUTS:-{}}" \
-    --argjson suggestions "${AGENT_SUGGESTIONS:-[]}" \
-    --argjson checks "${AGENT_CHECKS:-[]}" \
-    --argjson findings "${AGENT_FINDINGS:-[]}" \
-    --argjson release "${AGENT_RELEASE:-null}" \
+    --argjson outputs "${AGENT_OUTPUTS}" \
+    --argjson suggestions "${AGENT_SUGGESTIONS}" \
+    --argjson checks "${AGENT_CHECKS}" \
+    --argjson findings "${AGENT_FINDINGS}" \
+    --argjson release "${AGENT_RELEASE}" \
     --arg repo_owner "${GITHUB_REPOSITORY_OWNER:-}" \
     --arg repo_name "${GITHUB_REPOSITORY#*/}" \
     --arg sha "${GITHUB_SHA:-}" \
@@ -75,11 +85,11 @@ write_envelope() {
   "summary": "${summary}",
   "created_at": "${created_at}",
   "duration_ms": ${AGENT_DURATION_MS:-0},
-  "outputs": ${AGENT_OUTPUTS:-{}},
-  "suggestions": ${AGENT_SUGGESTIONS:-[]},
-  "checks": ${AGENT_CHECKS:-[]},
-  "findings": ${AGENT_FINDINGS:-[]},
-  "release": ${AGENT_RELEASE:-null},
+  "outputs": ${AGENT_OUTPUTS},
+  "suggestions": ${AGENT_SUGGESTIONS},
+  "checks": ${AGENT_CHECKS},
+  "findings": ${AGENT_FINDINGS},
+  "release": ${AGENT_RELEASE},
   "repository": {
     "owner": "${GITHUB_REPOSITORY_OWNER:-}",
     "repo": "${GITHUB_REPOSITORY#*/}",
