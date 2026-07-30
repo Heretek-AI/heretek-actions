@@ -20,8 +20,8 @@ on:
       ocr_llm_token:
         description: "LLM API authentication token"
         required: true
-      github_token:
-        description: "GitHub token"
+      repo_token:
+        description: "GitHub token (defaults to GITHUB_TOKEN)"
         required: false
       ocr_llm_model:
         description: "LLM model name (e.g. claude-sonnet-4-20250514). Falls back to input ocr-llm-model, then vars.OCR_LLM_MODEL, then default."
@@ -104,7 +104,7 @@ jobs:
         with:
           ocr-command: scan
           ocr-result-file: .ocr/result.json
-          github-token: ${{ secrets.github_token || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.repo_token || secrets.GITHUB_TOKEN }}
 
       - name: "Upload Agent Output"
         uses: actions/upload-artifact@v4
@@ -120,7 +120,7 @@ jobs:
         if: false  # Disabled by default — enable by changing to 'if: true'
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.github_token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.repo_token || secrets.GITHUB_TOKEN }}
         run: |
           if [ -f .agent/output.json ]; then
             FINDINGS=$(cat .agent/output.json | jq -c '.findings[] | select(.severity == "error")')

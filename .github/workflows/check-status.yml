@@ -13,8 +13,8 @@ on:
         default: "15"
         required: false
     secrets:
-      github_token:
-        description: "GitHub token"
+      repo_token:
+        description: "GitHub token (defaults to GITHUB_TOKEN)"
         required: false
 
 permissions:
@@ -31,7 +31,7 @@ jobs:
       - name: "Watch Check Status"
         uses: Heretek-AI/heretek-actions/.github/actions/check-status@v1
         with:
-          github-token: ${{ secrets.github_token || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.repo_token || secrets.GITHUB_TOKEN }}
           wait-for-completion: ${{ inputs.wait-for-completion }}
           poll-interval: ${{ inputs.poll-interval }}
 

@@ -40,8 +40,14 @@
   "hotPaths": [
     {
       "path": "README.md",
-      "accessCount": 10,
-      "lastAccessed": 1785424611148,
+      "accessCount": 11,
+      "lastAccessed": 1785425019259,
+      "type": "file"
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "accessCount": 2,
+      "lastAccessed": 1785425013756,
       "type": "file"
     }
   ],

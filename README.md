@@ -260,7 +260,7 @@ jobs:
       dockerfile: ./Dockerfile
       docker-image-name: my-org/my-app
     secrets:
-      github_token: ${{ secrets.GITHUB_TOKEN }}
+      repo_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 Supports `docker`, `flatpak`, `npm`, and `github-release` as release types.
