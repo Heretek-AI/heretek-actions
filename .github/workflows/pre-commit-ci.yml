@@ -61,6 +61,7 @@ jobs:
             "hooks_errors": ${ERROR_COUNT}
           }
           OUTPUTS
+          )
           export AGENT_OUTPUTS
 
           source .github/actions/agent-envelope.sh

@@ -16,11 +16,18 @@ jobs:
       - name: "Read Agent Output for Logging"
         shell: bash
         run: |
-          if [ -f .agent/output.json ]; then
-            echo "### Agent Context" >> $GITHUB_STEP_SUMMARY
-            cat .agent/output.json | jq -r '. | "\(.summary)"' >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo '```json' >> $GITHUB_STEP_SUMMARY
-            cat .agent/output.json >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
+          set +e
+          if [ -f .agent/output.json ] && [ -s .agent/output.json ]; then
+            if jq -e . .agent/output.json &>/dev/null; then
+              {
+                echo "### Agent Context"
+                jq -r '. | "\(.summary)"' .agent/output.json
+                echo ""
+                echo '```json'
+                cat .agent/output.json
+                echo '```'
+              } >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ Agent output file exists but is not valid JSON" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
