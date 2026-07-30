@@ -1,9 +1,70 @@
 # Code Quality Expansion Design
 
 **Date:** 2026-07-30
-**Status:** Draft
+**Status:** Draft (revised — review feedback resolved)
 **Author:** AI (brainstorming session)
 **Project:** Heretek Actions — code quality tooling expansion
+
+---
+
+## Decisions (resolved from review)
+
+Five items needed clarification before Tier 1 ships. They are captured here
+so that each Tier 1 PR can implement against a fixed contract:
+
+1. **`semantic-release` emits `agent_action: "semantic-release"`.** The
+   existing `release.yml` already produces `agent_action: "release"`; we keep
+   that and treat `semantic-release` as the *upstream* that decides the next
+   version. Consumers reading the envelope learn to look at
+   `outputs.next-version` from a `semantic-release` envelope when chaining,
+   and `release` for the publish event.
+
+2. **Coverage artifact path is fixed.** All per-language CI actions that emit
+   coverage (`rust-ci`, future `js-ci`/`python-ci` coverage modes) must
+   `upload-artifact` the report with `name: coverage-{lang}` and
+   `path: coverage/{lcov.info,cobertura.xml,...}` using `if-no-files-found: ignore`
+   when coverage wasn't enabled. The `coverage` action consumes those via
+   `actions/download-artifact@v4` with `pattern: coverage-*` /
+   `merge-multiple: true` into `.agent/results/coverage/`. This matches the
+   established `agent-output-{lang}` pattern from `check.yml:121-126`.
+
+3. **CodeQL workflow uploads its envelope as `agent-output-codeql`.** The
+   `codeql-analysis.yml` workflow is *not* a composite action (CodeQL
+   requires its own init/analyze lifecycle). To stay consistent with the
+   cross-job artifact channel used by `check.yml:194-199`, the workflow's
+   final step is `actions/upload-artifact@v4` with
+   `name: agent-output-codeql`, `path: .agent/output.json`,
+   `if-no-files-found: warn`. The `quality-gate` orchestrator job downloads
+   it via the same `pattern: agent-output-*` mechanism.
+
+4. **`semantic-release` trigger model.** A new `semantic-release.yml`
+   workflow triggers on `push` to `main` (or whichever branches are listed
+   in `release-branches`). It (a) computes the next version, (b) commits
+   the version bump back to the default branch (using `GH_TOKEN` with
+   `contents: write`), (c) pushes a tag `v{next-version}`, (d) writes its
+   envelope, then (e) `repository_dispatch` (event type
+   `semantic-release-complete`) re-invokes the existing `release.yml` with
+   the new tag. The existing `release.yml` already accepts `version` as an
+   input (`release.yml:108-110`); `semantic-release.yml` is a thin
+   orchestrator above it.
+
+5. **No standalone `dependabot-envelope` action.** Dependabot config and
+   PR-time dependency review are two different lifecycles and shouldn't
+   share an action wrapper. Section 3.2 is split:
+   - **3.2.1** `.github/dependabot.yml` — config-only, no action needed.
+   - **3.2.2** `.github/workflows/dependency-review.yml` — workflow that
+     runs `actions/dependency-review-action` on PRs, parses its JSON, and
+     emits `.agent/output.json` via `agent-envelope.sh`. Uploaded as
+     `agent-output-deps`.
+   The originally-proposed `.github/actions/dependabot-envelope/action.yml`
+   is removed.
+
+6. **Single coverage-baseline mechanism: explicit commit.** The
+   "diff vs default branch" feature in §1.2 (`threshold-diff`) is removed.
+   The "auto-write `.agent/quality-baseline.json` on success" feature in
+   §2.4 is also removed. Baseline files must be committed to the repo
+   explicitly (e.g. via a one-off workflow or manual PR). This prevents
+   silent threshold ratcheting and makes the contract auditable.
 
 ---
 
@@ -71,7 +132,6 @@ or enforces thresholds.
 | `action` | string | `both` | `upload`, `gate`, or `both` |
 | `format` | string | `auto` | `auto`, `lcov`, `cobertura`, `clover`, `jacoco` |
 | `threshold` | number | `80` | Minimum coverage % (gate mode) |
-| `threshold-diff` | number | `""` | Max allowed % drop vs default branch |
 | `upload-method` | string | `github-code-quality` | `github-code-quality`, `codecov`, `coveralls` |
 
 **Behavior:**
@@ -81,9 +141,22 @@ or enforces thresholds.
 - Uses existing `cargo-llvm-cov` / `pytest-cov` / `vitest --coverage` outputs
 
 **Integration with existing CI actions:**
-- `rust-ci`: `enable-coverage` input already exists, wires through to this action
-- `js-ci`: New `enable-coverage` input added
-- `python-ci`: New `enable-coverage` input added
+- `rust-ci`: `enable-coverage` input already exists at `rust-ci/action.yml:46-53`.
+  To wire into the `coverage` action, `rust-ci` must add an
+  `upload-artifact` step at the end of the action (only when
+  `enable-coverage == 'true'`) with `name: coverage-rust`,
+  `path: ${{ inputs.coverage-path }}`, `if-no-files-found: ignore`.
+  This matches the `check.yml:121-126` pattern.
+- `js-ci`: New `enable-coverage` input added. When true, runs
+  `vitest --coverage --coverage-reporter=lcov` and uploads via the same
+  `coverage-js` artifact path.
+- `python-ci`: New `enable-coverage` input added. When true, runs
+  `pytest --cov --cov-report=lcov` and uploads via `coverage-python`.
+
+The `coverage` action then uses `actions/download-artifact@v4` with
+`pattern: coverage-*`, `merge-multiple: true`, `path: .agent/results/coverage`
+to gather all coverage reports from upstream jobs. This is the same
+cross-job artifact channel already used by `check.yml:194-199`.
 
 **File:** `.github/actions/coverage/enforce-coverage.sh`
 
@@ -233,12 +306,10 @@ Reads `.agent/output.json` from upstream steps and enforces policy thresholds.
 - For each threshold rule, adds a `checks[]` entry with pass/fail
 - Writes merged envelope at the end
 - Produces suggestions: `pr:review_request` for coverage misses, `issue:create` for errors
-- Degradation detection: compares to `.agent/quality-baseline.json` if it exists
-
-**Baseline management:**
-- On success, writes current metrics to `.agent/quality-baseline.json`
-- On next run, delta is computed against this baseline
-- Prevents quality drift across PRs
+- Baseline comparison: if `.agent/quality-baseline.json` exists in the
+  repo (committed explicitly by the maintainer), it is read-only input —
+  the gate compares current metrics against the baseline and emits
+  degradation findings. The gate never writes or updates the baseline.
 
 ---
 
@@ -277,20 +348,37 @@ Automated version bumping and release creation from conventional commits.
 
 ### 3.2 Dependabot Configuration & Dependency Review
 
-**Files:**
-- `.github/dependabot.yml` — Standard config template
-- `.github/workflows/dependency-review.yml` — Dependency review with envelope
-- `.github/actions/dependabot-envelope/action.yml` — Envelope wrapper
+Two distinct deliverables, no shared action wrapper.
 
-**Dependabot template:**
-- npm/pip/cargo/github-actions ecosystem entries with sensible defaults
-- Weekly schedule, open-CRs limit, labels preset
+#### 3.2.1 `.github/dependabot.yml`
 
-**Dependency review workflow:**
-- Runs `actions/dependency-review-action` on PRs
-- Parses the action's JSON output into findings
-- Blocks merge on license violations or critical vulnerabilities
-- Writes envelope for agent consumption
+Config-only file. Standard template covering npm/pip/cargo/github-actions
+ecosystem entries with sensible defaults:
+
+- Weekly schedule (Monday 09:00 UTC)
+- Open-PR limit of 5 per ecosystem
+- Preset labels: `dependencies`, `security` (when applicable), `automated`
+
+No action, no workflow, no envelope.
+
+#### 3.2.2 `.github/workflows/dependency-review.yml`
+
+PR-time workflow. Triggers on `pull_request` and runs
+`actions/dependency-review-action@v4`. Parses its JSON output into:
+
+- `findings[]` entries with `rule: "dependency-review"`, `severity` from
+  the action's level, `file: package.json` (or equivalent), and
+  `message` from the action's output.
+- One `checks[]` entry summarizing license violations, security
+  vulnerabilities, and supply-chain risks.
+
+Writes `.agent/output.json` via `agent-envelope.sh` (sourcing from the
+`.github/actions/agent-envelope.sh` copy), sets
+`status: "failure"` on any critical vulnerability or license violation,
+and uploads `name: agent-output-deps`, `path: .agent/output.json`,
+`if-no-files-found: warn`. This matches the `check.yml:121-126` pattern
+and is consumed by the `quality-gate` orchestrator like every other
+envelope.
 
 ### 3.3 Docker CI Hardened Action
 
@@ -375,20 +463,26 @@ waits for their artifacts.
 
 Implement tier-1 items first (one PR per action):
 1. `lint-ultimate` action + MegaLinter integration
-2. `coverage` action + wiring into `rust-ci`/`js-ci`/`python-ci`
-3. `actionlint` action
+2. `actionlint` action
+3. `coverage` action + upload-artifact wiring into `rust-ci` (and the
+   `enable-coverage` inputs on `js-ci`/`python-ci` in the same PR or a
+   follow-up). Moved below `actionlint` so the upload-artifact pattern is
+   established first.
 4. `codeql-analysis.yml` workflow
 
 Then tier-2:
 5. `lefthook.yml` config + `lefthook-ci` action
 6. `test-matrix` action
-7. `reviewdog` action
+7. `reviewdog` action — see nit below: this stays in the list, but the
+   implementation is a helper script (e.g. `.github/actions/agent-envelope.sh`
+   companion `reviewdog-helper.sh`) used by the lint actions, not a
+   standalone composite action consumers call directly.
 8. `quality-gate` action
 9. `quality-check.yml` orchestrator
 
 Then tier-3:
-10. `semantic-release` action
-11. `dependabot.yml` + `dependency-review.yml`
+10. `semantic-release.yml` workflow + thin orchestrator
+11. `dependabot.yml` config + `dependency-review.yml` workflow
 12. `docker-ci` action
 13. `ai-slop` action
 
