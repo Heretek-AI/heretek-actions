@@ -77,11 +77,10 @@ repos:
         stages: [manual]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.0
+    rev: v1.15.0
     hooks:
       - id: mypy
         stages: [manual]
-        additional_dependencies: [types-all]
 
   # Shell
   - repo: https://github.com/shellcheck-py/shellcheck-py
