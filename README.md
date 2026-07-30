@@ -306,8 +306,10 @@ Both OCR workflows require LLM credentials. Set these as [GitHub secrets/variabl
 |----------------|------|-------------|---------|
 | `OCR_LLM_URL` | secret | LLM API endpoint | `https://api.anthropic.com/v1/messages` |
 | `OCR_LLM_TOKEN` | secret | API authentication token | `sk-ant-...` |
-| `OCR_LLM_MODEL` | variable | Model name | `claude-sonnet-4-20250514` |
+| `OCR_LLM_MODEL` | **secret** or variable | Default LLM model (secret recommended for org-wide defaults) | `claude-sonnet-4-20250514` |
 | `OCR_LLM_USE_ANTHROPIC` | variable | Protocol selection | `true` (Anthropic) or `false` (OpenAI) |
+
+**Model resolution order:** `secrets.ocr_llm_model` → `inputs.ocr-llm-model` → `vars.OCR_LLM_MODEL` → built-in default (`claude-sonnet-4-20250514`). Set `OCR_LLM_MODEL` as a GitHub secret to configure the model once for your org without exposing it in workflow files.
 
 Pass them in your workflow:
 
@@ -320,7 +322,7 @@ jobs:
       ocr_llm_token: ${{ secrets.OCR_LLM_TOKEN }}
 ```
 
-When referencing via `workflow_call`, the secret names use underscores (`ocr_llm_url`, `ocr_llm_token`); the GitHub UI secrets use uppercase underscore names (`OCR_LLM_URL`, `OCR_LLM_TOKEN`). You only need to configure `OCR_LLM_URL` and `OCR_LLM_TOKEN` in your repo settings, and pass them via `secrets:` mapping in the workflow.
+When referencing via `workflow_call`, the secret names use underscores (`ocr_llm_url`, `ocr_llm_token`, `ocr_llm_model`); the GitHub UI secrets use uppercase underscore names (`OCR_LLM_URL`, `OCR_LLM_TOKEN`, `OCR_LLM_MODEL`). You only need to configure `OCR_LLM_URL` and `OCR_LLM_TOKEN` in your repo settings (and optionally `OCR_LLM_MODEL` for a default model), then pass them via `secrets:` mapping in the workflow.
 
 ---
 

@@ -23,6 +23,9 @@ on:
       github_token:
         description: "GitHub token"
         required: false
+      ocr_llm_model:
+        description: "LLM model name (e.g. claude-sonnet-4-20250514). Falls back to input ocr-llm-model, then vars.OCR_LLM_MODEL, then default."
+        required: false
     inputs:
       scan-path:
         description: "Path to scan (default: entire repository)"
@@ -71,7 +74,7 @@ jobs:
         env:
           OCR_LLM_URL: ${{ secrets.ocr_llm_url }}
           OCR_LLM_TOKEN: ${{ secrets.ocr_llm_token }}
-          OCR_LLM_MODEL: ${{ inputs.ocr-llm-model || vars.OCR_LLM_MODEL || 'claude-sonnet-4-20250514' }}
+          OCR_LLM_MODEL: ${{ secrets.ocr_llm_model || inputs.ocr-llm-model || vars.OCR_LLM_MODEL || 'claude-sonnet-4-20250514' }}
           OCR_USE_ANTHROPIC: ${{ inputs.ocr-use-anthropic || vars.OCR_LLM_USE_ANTHROPIC || 'true' }}
           SCAN_PATH: ${{ inputs.scan-path || github.event.inputs.scan-path || '.' }}
         run: |

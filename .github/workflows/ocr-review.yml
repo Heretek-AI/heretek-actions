@@ -15,6 +15,9 @@ on:
       github_token:
         description: "GitHub token with pull-requests: write permission"
         required: false
+      ocr_llm_model:
+        description: "LLM model name (e.g. claude-sonnet-4-20250514). Falls back to input ocr-llm-model, then vars.OCR_LLM_MODEL, then default."
+        required: false
     inputs:
       ocr-llm-model:
         description: "LLM model name (e.g. claude-sonnet-4-20250514)"
@@ -118,7 +121,7 @@ jobs:
           github_token: ${{ secrets.github_token || secrets.GITHUB_TOKEN }}
           llm_url: ${{ secrets.ocr_llm_url }}
           llm_auth_token: ${{ secrets.ocr_llm_token }}
-          llm_model: ${{ inputs.ocr-llm-model || vars.OCR_LLM_MODEL || 'claude-sonnet-4-20250514' }}
+          llm_model: ${{ secrets.ocr_llm_model || inputs.ocr-llm-model || vars.OCR_LLM_MODEL || 'claude-sonnet-4-20250514' }}
           llm_use_anthropic: ${{ inputs.ocr-use-anthropic || vars.OCR_LLM_USE_ANTHROPIC || 'true' }}
           base_ref: ${{ github.event.pull_request.base.ref || steps.context.outputs.base_ref }}
           head_sha: ${{ github.event.pull_request.head.sha || steps.context.outputs.head_sha }}
