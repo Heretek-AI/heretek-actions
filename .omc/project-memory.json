@@ -1,0 +1,49 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1785424346975,
+  "projectRoot": "/home/john/Projects/heretek-actions",
+  "techStack": {
+    "languages": [],
+    "frameworks": [],
+    "packageManager": null,
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "pre-commit-hooks": {
+      "path": "pre-commit-hooks",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1785424346973,
+      "keyFiles": []
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "README.md",
+      "accessCount": 5,
+      "lastAccessed": 1785424461517,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

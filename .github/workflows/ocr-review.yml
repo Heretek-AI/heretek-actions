@@ -6,13 +6,13 @@ on:
     types: [created]
   workflow_call:
     secrets:
-      ocr-llm-url:
+      ocr_llm_url:
         description: "LLM API endpoint URL (e.g. https://api.anthropic.com/v1/messages)"
         required: true
-      ocr-llm-token:
+      ocr_llm_token:
         description: "LLM API authentication token"
         required: true
-      github-token:
+      github_token:
         description: "GitHub token with pull-requests: write permission"
         required: false
     inputs:
@@ -65,7 +65,7 @@ jobs:
         id: context
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.github-token || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.github_token || secrets.GITHUB_TOKEN }}
           script: |
             const pr = await github.rest.pulls.get({
               owner: context.repo.owner,
@@ -75,12 +75,6 @@ jobs:
             core.setOutput('base_ref', pr.data.base.ref);
             core.setOutput('head_sha', pr.data.head.sha);
 
-  # Pull_request_target events have the PR context directly in the event payload.
-  # Issue_comment events need the get-pr-context job to fetch it.
-  # We use separate approach: for pull_request_target, we reference event directly;
-  # for issue_comment, we need the get-pr-context outputs.
-  # Since we can't conditionally set needs, we handle both branches in one job
-  # with an if condition that guards access to needs values.
   ocr-review:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -101,7 +95,7 @@ jobs:
         if: github.event_name == 'issue_comment'
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.github-token || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.github_token || secrets.GITHUB_TOKEN }}
           script: |
             const pr = await github.rest.pulls.get({
               owner: context.repo.owner,
@@ -121,9 +115,9 @@ jobs:
         id: ocr
         uses: alibaba/open-code-review@main
         with:
-          github_token: ${{ secrets.github-token || secrets.GITHUB_TOKEN }}
-          llm_url: ${{ secrets.ocr-llm-url }}
-          llm_auth_token: ${{ secrets.ocr-llm-token }}
+          github_token: ${{ secrets.github_token || secrets.GITHUB_TOKEN }}
+          llm_url: ${{ secrets.ocr_llm_url }}
+          llm_auth_token: ${{ secrets.ocr_llm_token }}
           llm_model: ${{ inputs.ocr-llm-model || vars.OCR_LLM_MODEL || 'claude-sonnet-4-20250514' }}
           llm_use_anthropic: ${{ inputs.ocr-use-anthropic || vars.OCR_LLM_USE_ANTHROPIC || 'true' }}
           base_ref: ${{ github.event.pull_request.base.ref || steps.context.outputs.base_ref }}
@@ -134,7 +128,7 @@ jobs:
         with:
           ocr-command: review
           ocr-result-file: .ocr/result.json
-          github-token: ${{ secrets.github-token || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.github_token || secrets.GITHUB_TOKEN }}
 
       - name: "Upload Agent Output"
         uses: actions/upload-artifact@v4

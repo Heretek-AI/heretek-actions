@@ -67,10 +67,10 @@ on:
         required: false
 
     secrets:
-      github-token:
+      github_token:
         description: "GitHub token"
         required: false
-      npm-token:
+      npm_token:
         description: "npm token (for npm releases)"
         required: false
 
@@ -100,20 +100,20 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.github-token || secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.github_token || secrets.GITHUB_TOKEN }}
 
       - name: "Run Release"
         uses: Heretek-AI/heretek-actions/.github/actions/release@v1
         with:
           release-type: ${{ inputs.release-type }}
           version: ${{ inputs.version }}
-          github-token: ${{ secrets.github-token || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.github_token || secrets.GITHUB_TOKEN }}
           dockerfile: ${{ inputs.dockerfile }}
           docker-image-name: ${{ inputs.docker-image-name || github.repository }}
           docker-platforms: ${{ inputs.docker-platforms }}
           flatpak-manifest: ${{ inputs.flatpak-manifest }}
           flatpak-branch: ${{ inputs.flatpak-branch }}
-          npm-token: ${{ secrets.npm-token }}
+          npm-token: ${{ secrets.npm_token }}
           npm-dry-run: ${{ inputs.npm-dry-run }}
           release-notes: ${{ inputs.release-notes }}
           generate-notes: ${{ inputs.generate-notes }}

@@ -60,8 +60,8 @@ jobs:
   review:
     uses: Heretek-AI/heretek-actions/.github/workflows/ocr-review.yml@v1
     secrets:
-      ocr-llm-url: ${{ secrets.OCR_LLM_URL }}
-      ocr-llm-token: ${{ secrets.OCR_LLM_TOKEN }}
+      ocr_llm_url: ${{ secrets.OCR_LLM_URL }}
+      ocr_llm_token: ${{ secrets.OCR_LLM_TOKEN }}
 ```
 
 You can also trigger a full codebase scan manually:
@@ -73,8 +73,8 @@ jobs:
   scan:
     uses: Heretek-AI/heretek-actions/.github/workflows/ocr-scan.yml@v1
     secrets:
-      ocr-llm-url: ${{ secrets.OCR_LLM_URL }}
-      ocr-llm-token: ${{ secrets.OCR_LLM_TOKEN }}
+      ocr_llm_url: ${{ secrets.OCR_LLM_URL }}
+      ocr_llm_token: ${{ secrets.OCR_LLM_TOKEN }}
 ```
 
 **Requirements:** Configure [secrets/vars](#open-code-review-configuration) with your LLM API credentials.
@@ -260,7 +260,7 @@ jobs:
       dockerfile: ./Dockerfile
       docker-image-name: my-org/my-app
     secrets:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
+      github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 Supports `docker`, `flatpak`, `npm`, and `github-release` as release types.
@@ -272,13 +272,13 @@ jobs:
   review:
     uses: Heretek-AI/heretek-actions/.github/workflows/ocr-review.yml@v1
     secrets:
-      ocr-llm-url: ${{ secrets.OCR_LLM_URL }}
-      ocr-llm-token: ${{ secrets.OCR_LLM_TOKEN }}
+      ocr_llm_url: ${{ secrets.OCR_LLM_URL }}
+      ocr_llm_token: ${{ secrets.OCR_LLM_TOKEN }}
 ```
 
 Uses [Open Code Review](https://open-codereview.ai) to analyze pull requests with an LLM. Comments inline, produces `.agent/output.json`. Also supports re-triggering via `/open-code-review` or `@open-code-review` comments on the PR. For `workflow_call`, pass secrets as shown above.
 
-**Required secrets:** `ocr-llm-url`, `ocr-llm-token`
+**Required secrets:** `ocr_llm_url`, `ocr_llm_token`
 
 ### `ocr-scan.yml` — Full Codebase Scan
 
@@ -287,8 +287,8 @@ jobs:
   scan:
     uses: Heretek-AI/heretek-actions/.github/workflows/ocr-scan.yml@v1
     secrets:
-      ocr-llm-url: ${{ secrets.OCR_LLM_URL }}
-      ocr-llm-token: ${{ secrets.OCR_LLM_TOKEN }}
+      ocr_llm_url: ${{ secrets.OCR_LLM_URL }}
+      ocr_llm_token: ${{ secrets.OCR_LLM_TOKEN }}
     with:
       scan-path: "."
       ocr-use-anthropic: "true"
@@ -316,11 +316,11 @@ jobs:
   review:
     uses: Heretek-AI/heretek-actions/.github/workflows/ocr-review.yml@v1
     secrets:
-      ocr-llm-url: ${{ secrets.OCR_LLM_URL }}
-      ocr-llm-token: ${{ secrets.OCR_LLM_TOKEN }}
+      ocr_llm_url: ${{ secrets.OCR_LLM_URL }}
+      ocr_llm_token: ${{ secrets.OCR_LLM_TOKEN }}
 ```
 
-When referencing via `workflow_call`, the input names use hyphens (`ocr-llm-url`, `ocr-llm-token`); the GitHub UI and direct trigger use underscore-named env vars (`OCR_LLM_URL`, `OCR_LLM_TOKEN`). You only need to configure the underscore-named ones in your repo settings.
+When referencing via `workflow_call`, the secret names use underscores (`ocr_llm_url`, `ocr_llm_token`); the GitHub UI secrets use uppercase underscore names (`OCR_LLM_URL`, `OCR_LLM_TOKEN`). You only need to configure `OCR_LLM_URL` and `OCR_LLM_TOKEN` in your repo settings, and pass them via `secrets:` mapping in the workflow.
 
 ---
 
