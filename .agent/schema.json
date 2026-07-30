@@ -19,7 +19,18 @@
         "ci-js",
         "ci-python",
         "release",
-        "pre-commit"
+        "pre-commit",
+        "lint-ultimate",
+        "coverage",
+        "actionlint",
+        "codeql",
+        "lefthook-ci",
+        "test-matrix",
+        "reviewdog",
+        "quality-gate",
+        "semantic-release",
+        "dependabot",
+        "docker-ci"
       ]
     },
     "version": {

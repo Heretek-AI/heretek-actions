@@ -35,6 +35,19 @@ write_envelope() {
   if [ -z "${AGENT_RELEASE:-}" ]; then AGENT_RELEASE='null'; fi
 
   # Build envelope — prefer jq, fall back to cat
+  # Default GITHUB_REPOSITORY first to keep `set -u` callers (tests, local
+  # sandbox) from triggering unbound-variable errors. Strip the owner
+  # prefix to match the existing repository.repo semantics.
+  # Coerce GITHUB_RUN_ID to actual `null` (not empty string) before
+  # passing to jq; jq 1.8.2 silently produces no output when
+  # `tonumber?` on an empty arg is used in a top-level object context.
+  : "${GITHUB_REPOSITORY:=}"
+  _repo_name="${GITHUB_REPOSITORY##*/}"
+  if [ -z "${GITHUB_RUN_ID:-}" ]; then
+    _run_id_arg='--argjson run_id null'
+  else
+    _run_id_arg="--argjson run_id ${GITHUB_RUN_ID}"
+  fi
   if command -v jq &>/dev/null && jq -n \
     --arg action "$action" \
     --arg version "1.0" \
@@ -48,11 +61,11 @@ write_envelope() {
     --argjson findings "${AGENT_FINDINGS}" \
     --argjson release "${AGENT_RELEASE}" \
     --arg repo_owner "${GITHUB_REPOSITORY_OWNER:-}" \
-    --arg repo_name "${GITHUB_REPOSITORY#*/}" \
+    --arg repo_name "${_repo_name}" \
     --arg sha "${GITHUB_SHA:-}" \
     --arg ref "${GITHUB_REF:-}" \
     --arg workflow "${GITHUB_WORKFLOW:-}" \
-    --arg run_id "${GITHUB_RUN_ID:-}" \
+    ${_run_id_arg} \
     '{
       agent_action: $action,
       version: $version,
@@ -71,7 +84,7 @@ write_envelope() {
         sha: $sha,
         ref: $ref,
         workflow: $workflow,
-        run_id: ($run_id | tonumber?)
+        run_id: $run_id
       }
     }' > "$AGENT_ENVELOPE_FILE" 2>/dev/null; then
     :  # jq succeeded
@@ -162,4 +175,70 @@ CHECK
     AGENT_CHECKS=$(echo "$AGENT_CHECKS" | sed 's/\]$/,/' | (cat - && echo "${check}]"))
   fi
   export AGENT_CHECKS
+}
+
+# Helper to add a finding (lint error, vuln, etc.)
+#
+# Usage: add_finding <severity> <message> [rule] [file] [line] [column] [suggested_fix]
+#
+# Severity must be one of: error, warning, info, note (matches
+# .agent/schema.json findings[].severity enum).
+add_finding() {
+  local severity="$1"
+  local message="$2"
+  local rule="${3:-}"
+  local file="${4:-}"
+  local line="${5:-}"
+  local column="${6:-}"
+  local suggested_fix="${7:-}"
+
+  if [ -z "${AGENT_FINDINGS:-}" ]; then
+    AGENT_FINDINGS='[]'
+  fi
+
+  # Build JSON via jq for safety; jq nullifies unset optional fields.
+  local finding
+  if command -v jq &>/dev/null; then
+    finding=$(jq -n \
+      --arg severity "$severity" \
+      --arg rule "$rule" \
+      --arg file "$file" \
+      --arg message "$message" \
+      --arg suggested_fix "$suggested_fix" \
+      --arg line "$line" \
+      --arg column "$column" \
+      '{
+        severity: $severity,
+        message: $message,
+        rule: (if $rule == "" then null else $rule end),
+        file: (if $file == "" then null else $file end),
+        line: (if $line == "" then null else ($line | tonumber) end),
+        column: (if $column == "" then null else ($column | tonumber) end),
+        suggested_fix: (if $suggested_fix == "" then null else $suggested_fix end)
+      }')
+  else
+    # No-jq fallback: omit empty optional fields; coerce line/column to
+    # numbers only when non-empty. Message and severity are always strings.
+    local rule_json="null"
+    [ -n "$rule" ] && rule_json="\"$rule\""
+    local file_json="null"
+    [ -n "$file" ] && file_json="\"$file\""
+    local line_json="null"
+    [ -n "$line" ] && line_json="$line"
+    local column_json="null"
+    [ -n "$column" ] && column_json="$column"
+    local fix_json="null"
+    [ -n "$suggested_fix" ] && fix_json="\"$suggested_fix\""
+    finding=$(cat <<FINDING
+{"severity":"${severity}","message":"${message}","rule":${rule_json},"file":${file_json},"line":${line_json},"column":${column_json},"suggested_fix":${fix_json}}
+FINDING
+    )
+  fi
+
+  if command -v jq &>/dev/null; then
+    AGENT_FINDINGS=$(echo "$AGENT_FINDINGS" | jq --argjson f "$finding" '. + [$f]')
+  else
+    AGENT_FINDINGS=$(echo "$AGENT_FINDINGS" | sed 's/\]$/,/' | (cat - && echo "${finding}]"))
+  fi
+  export AGENT_FINDINGS
 }
