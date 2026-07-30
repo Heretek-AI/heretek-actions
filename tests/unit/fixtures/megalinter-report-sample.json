@@ -1,0 +1,36 @@
+{
+  "MARKDOWN_MARKDOWNLINT": {
+    "status": "warning",
+    "findings": [
+      {
+        "severity": "warning",
+        "filename": "README.md",
+        "line": 7,
+        "column": 1,
+        "message": "MD012/no-multiple-blanks: Multiple consecutive blank lines",
+        "linter_rule_key": "MD012"
+      },
+      {
+        "severity": "warning",
+        "filename": "README.md",
+        "line": 13,
+        "column": 1,
+        "message": "MD009/no-trailing-spaces: Trailing spaces",
+        "linter_rule_key": "MD009"
+      }
+    ]
+  },
+  "YAML_YAMLLINT": {
+    "status": "warning",
+    "findings": [
+      {
+        "severity": "warning",
+        "filename": ".mega-linter.yml",
+        "line": 2,
+        "column": 1,
+        "message": "missing document start \"---\"",
+        "linter_rule_key": "document-start"
+      }
+    ]
+  }
+}

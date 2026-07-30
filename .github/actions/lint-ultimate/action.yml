@@ -1,0 +1,101 @@
+name: "Lint Ultimate"
+description: |
+  Composite action wrapping MegaLinter (or Super-Linter) to analyze 40+
+  languages, formats, IaC, and config files in one step. Produces a
+  standardized .agent/output.json envelope with per-linter checks and
+  individual findings.
+
+author: "Heretek-AI"
+
+inputs:
+  linter:
+    description: "Linter suite to run: 'megalinter' or 'super-linter'"
+    default: "megalinter"
+    required: false
+  linter-version:
+    description: "Version tag for the chosen linter suite"
+    default: "v7"
+    required: false
+  config-file:
+    description: "Path to MegaLinter config (megalinter only)"
+    default: ".mega-linter.yml"
+    required: false
+  upload-artifacts:
+    description: "Upload lint reports as workflow artifacts"
+    default: "true"
+    required: false
+  github-token:
+    description: "GitHub token for posting review comments"
+    default: "${{ github.token }}"
+    required: false
+  report-path:
+    description: "Where MegaLinter writes its JSON report"
+    default: "megalinter-report.json"
+    required: false
+
+outputs:
+  agent_action:
+    description: "Always 'lint-ultimate'"
+    value: ${{ steps.envelope.outputs.agent_action }}
+  status:
+    description: "success | failure | partial"
+    value: ${{ steps.envelope.outputs.status }}
+  summary:
+    description: "Lint summary"
+    value: ${{ steps.envelope.outputs.summary }}
+  findings_count:
+    description: "Number of individual findings emitted"
+    value: ${{ steps.envelope.outputs.findings_count }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Checkout"
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: "0"
+
+    - name: "Run MegaLinter"
+      id: megalinter
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        MEGALINTER_CONFIG: ${{ inputs.config-file }}
+      run: |
+        echo "==> Running MegaLinter (${{ inputs.linter-version }})"
+        docker run --rm \
+          -v "${GITHUB_WORKSPACE}:/tmp/lint" \
+          -e MEGALINTER_CONFIG \
+          -e GITHUB_TOKEN \
+          oxsecurity/megalinter:${{ inputs.linter-version }} \
+          2>&1 | tee .megalinter-stdout.log
+
+    - name: "Upload Lint Reports"
+      id: upload
+      if: inputs.upload-artifacts == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: lint-ultimate-reports
+        path: |
+          ${{ inputs.report-path }}
+          .megalinter-stdout.log
+        if-no-files-found: warn
+        retention-days: 7
+
+    - name: "Generate Agent Envelope"
+      id: envelope
+      if: always()
+      shell: bash
+      env:
+        REPORT_PATH: ${{ inputs.report-path }}
+        AGENT_ACTION_PATH: ${{ github.action_path }}
+      run: |
+        "${AGENT_ACTION_PATH}/build-envelope.sh"
+
+    - name: "Upload Agent Output"
+      uses: actions/upload-artifact@v4
+      with:
+        name: agent-output-lint
+        path: .agent/output.json
+        if-no-files-found: warn
+        retention-days: 7

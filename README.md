@@ -200,6 +200,7 @@ Scans for: TODO/FIXME without issues, missing test files, large files (>500 line
 | [`rust-ci`](.github/actions/rust-ci/) | 🦀 Rust | `cargo fmt`, `cargo clippy`, `cargo test` | coverage (`cargo-llvm-cov`), audit (`cargo-audit`) |
 | [`js-ci`](.github/actions/js-ci/) | 🟨 JS/TS | lint, typecheck (tsc --noEmit), test | — |
 | [`python-ci`](.github/actions/python-ci/) | 🐍 Python | lint (ruff), typecheck (mypy), test (pytest) | — |
+| [`lint-ultimate`](.github/actions/lint-ultimate/) | 🔍 MegaLinter | 40+ languages, 22 formats, IaC, configs in one step | linter (`megalinter` / `super-linter`) |
 
 ### `rust-ci` Example
 
@@ -230,6 +231,21 @@ Auto-detects pnpm, yarn, bun, or npm from lock files.
   with:
     python-version: "3.12"
 ```
+
+### `lint-ultimate` Example
+
+```yaml
+- uses: Heretek-AI/heretek-actions/.github/actions/lint-ultimate@v1
+  with:
+    linter: megalinter            # or: super-linter
+    linter-version: v7
+    config-file: .mega-linter.yml
+```
+
+Produces a per-linter `checks[]` array and an individual `findings[]`
+array in `.agent/output.json`. Reports are uploaded as
+`lint-ultimate-reports` artifacts. Envelope is uploaded as
+`agent-output-lint` for downstream consumers (e.g. `quality-gate`).
 
 ---
 
