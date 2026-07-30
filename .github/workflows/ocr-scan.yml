@@ -139,13 +139,23 @@ jobs:
           echo "   Concurrency: ${OCR_CONCURRENCY}"
           echo "   No-Plan: ${OCR_NO_PLAN}"
 
-          # Run scan — JSON output to stdout, stderr to file
-          # NOTE: Use the command directly, NOT eval with flag variables.
-          # Shell-quoting inside variables is lost on eval, making
-          # --path "." become --path with value "." (breaking the scan).
-          {
-            echo "👉 ocr scan --path ${SCAN_PATH} --concurrency ${OCR_CONCURRENCY} $([ "${OCR_NO_PLAN}" = "true" ] && echo '--no-plan') --format json --audience agent"
-          } >&2
+          # Build file list for scan.
+          # On a fresh CI checkout (actions/checkout), git diff is empty, so
+          # ocr scan's auto-discovery finds 0 files. Explicitly enumerate
+          # all files under SCAN_PATH to ensure every file is reviewed.
+          if [ "${SCAN_PATH}" = "." ]; then
+            FILE_LIST=$(find . -type f -not -path './.git/*' \
+              -not -path './node_modules/*' -not -path './target/*' \
+              -not -path './.venv/*' -not -path './__pycache__/*' \
+              2>/dev/null | head -500 | paste -sd ',' -)
+          elif [ -d "${SCAN_PATH}" ]; then
+            FILE_LIST=$(find "${SCAN_PATH}" -type f \
+              -not -path './.git/*' -not -path './node_modules/*' \
+              2>/dev/null | head -500 | paste -sd ',' -)
+          else
+            FILE_LIST="${SCAN_PATH}"
+          fi
+          echo "   Files: $(echo "${FILE_LIST}" | tr ',' '\n' | wc -l)" >&2
 
           if [ "${OCR_NO_PLAN}" = "true" ]; then
             NO_PLAN="--no-plan"
@@ -153,8 +163,9 @@ jobs:
             NO_PLAN=""
           fi
 
+          # Run scan — JSON output to stdout, stderr to file
           ocr scan \
-            --path "${SCAN_PATH}" \
+            --path "${FILE_LIST}" \
             --concurrency "${OCR_CONCURRENCY}" \
             --format json --audience agent \
             ${NO_PLAN:+--no-plan} \
