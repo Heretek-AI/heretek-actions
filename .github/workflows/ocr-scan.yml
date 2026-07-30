@@ -57,17 +57,6 @@ jobs:
         with:
           fetch-depth: "0"
 
-      - name: "Install Open Code Review CLI"
-        shell: bash
-        run: |
-          # Install OCR CLI for scan mode
-          # The alibaba/open-code-review action is for PR reviews;
-          # for full scans we use the CLI directly
-          curl -fsSL https://open-codereview.ai/install.sh | bash 2>/dev/null || \
-          npm install -g @open-code-review/cli 2>/dev/null || \
-          npx @open-code-review/cli --version 2>/dev/null || true
-          ocr --version 2>/dev/null || echo "OCR CLI installed"
-
       - name: "Run OCR Scan"
         id: scan
         shell: bash
@@ -80,14 +69,13 @@ jobs:
         run: |
           mkdir -p .ocr
 
-          # Run full repo scan
+          # Run full repo scan via npx (guarantees latest OCR CLI version)
           echo "🔍 Scanning: ${SCAN_PATH}"
-          if command -v ocr &>/dev/null; then
-            ocr scan --path "${SCAN_PATH}" --format json --audience agent 2>&1 | tee .ocr/scan-output.txt
-          else
-            echo "OCR CLI not found, attempting npx..."
-            npx @open-code-review/cli scan --path "${SCAN_PATH}" --format json 2>&1 | tee .ocr/scan-output.txt
-          fi
+          npx @open-code-review/cli@latest scan \
+            --path "${SCAN_PATH}" \
+            --format json \
+            --audience agent \
+            2>&1 | tee .ocr/scan-output.txt
 
           # Check for result.json output (OCR writes here)
           if [ -f ".ocr/result.json" ]; then
@@ -123,7 +111,7 @@ jobs:
           GH_TOKEN: ${{ secrets.repo_token || secrets.GITHUB_TOKEN }}
         run: |
           if [ -f .agent/output.json ]; then
-            FINDINGS=$(jq -c '.findings[] | select(.severity == "error")')
+            FINDINGS=$(jq -c '.findings[] | select(.severity == "error")' .agent/output.json)
             echo "$FINDINGS" | while IFS= read -r finding; do
               FILE=$(echo "$finding" | jq -r '.file // "unknown"')
               MESSAGE=$(echo "$finding" | jq -r '.message // ""')
@@ -144,16 +132,16 @@ jobs:
         run: |
           if [ -f .agent/output.json ]; then
             echo "## OCR Full Scan Results" >> $GITHUB_STEP_SUMMARY
-            jq -r '. | "- **Status**: \(.status)\n- **Summary**: \(.summary)"' >> $GITHUB_STEP_SUMMARY
+            jq -r '. | "- **Status**: \(.status)\n- **Summary**: \(.summary)"' .agent/output.json >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            FINDINGS_COUNT=$(jq '.findings | length' 2>/dev/null || echo 0)
+            FINDINGS_COUNT=$(jq '.findings | length' .agent/output.json 2>/dev/null || echo 0)
             echo "**Total findings: ${FINDINGS_COUNT}**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
             if [ "$FINDINGS_COUNT" -gt 0 ] && [ "$FINDINGS_COUNT" -le 30 ]; then
               echo "| Severity | Rule | File |" >> $GITHUB_STEP_SUMMARY
               echo "|----------|------|------|" >> $GITHUB_STEP_SUMMARY
-              jq -r '.findings[] | "| \(.severity) | \(.rule) | `\(.file)` |"' >> $GITHUB_STEP_SUMMARY
+              jq -r '.findings[] | "| \(.severity) | \(.rule) | `\(.file)` |"' .agent/output.json >> $GITHUB_STEP_SUMMARY
             fi
           fi

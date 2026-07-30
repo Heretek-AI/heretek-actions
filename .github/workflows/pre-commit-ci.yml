@@ -80,7 +80,7 @@ jobs:
         run: |
           if [ -f .agent/output.json ]; then
             echo "## Pre-commit Results" >> $GITHUB_STEP_SUMMARY
-            jq -r '. | "\(.summary)"' >> $GITHUB_STEP_SUMMARY
+            jq -r '. | "\(.summary)"' .agent/output.json >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             cat .agent/pre-commit-output.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null

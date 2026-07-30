@@ -230,11 +230,11 @@ jobs:
         run: |
           if [ -f .agent/output.json ]; then
             echo "## CI Check Results" >> $GITHUB_STEP_SUMMARY
-            jq -r '.summary' >> $GITHUB_STEP_SUMMARY
+            jq -r '.summary' .agent/output.json >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
             # Table
             echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-            jq -r '.checks[] | "| \(.name) | \(.status) |"' >> $GITHUB_STEP_SUMMARY
+            jq -r '.checks[] | "| \(.name) | \(.status) |"' .agent/output.json >> $GITHUB_STEP_SUMMARY
           fi

@@ -146,12 +146,12 @@ jobs:
         run: |
           if [ -f .agent/output.json ]; then
             echo "## OCR Review Results" >> $GITHUB_STEP_SUMMARY
-            jq -r '. | "- **Status**: \(.status)\n- **Summary**: \(.summary)"' >> $GITHUB_STEP_SUMMARY
+            jq -r '. | "- **Status**: \(.status)\n- **Summary**: \(.summary)"' .agent/output.json >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            FINDINGS=$(jq '.findings | length' 2>/dev/null || echo 0)
+            FINDINGS=$(jq '.findings | length' .agent/output.json 2>/dev/null || echo 0)
             if [ "$FINDINGS" -gt 0 ] && [ "$FINDINGS" -le 20 ]; then
               echo "### Findings" >> $GITHUB_STEP_SUMMARY
-              jq -r '.findings[] | "- `\(.file // "?")`:\(.line // "?") — \(.message)"' >> $GITHUB_STEP_SUMMARY
+              jq -r '.findings[] | "- `\(.file // "?")`:\(.line // "?") — \(.message)"' .agent/output.json >> $GITHUB_STEP_SUMMARY
             fi
           fi

@@ -26,5 +26,5 @@ jobs:
         run: |
           if [ -f .agent/output.json ]; then
             echo "### PR Summary" >> $GITHUB_STEP_SUMMARY
-            jq -r '. | "\(.summary)"' >> $GITHUB_STEP_SUMMARY
+            jq -r '. | "\(.summary)"' .agent/output.json >> $GITHUB_STEP_SUMMARY
           fi

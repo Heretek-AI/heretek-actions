@@ -39,8 +39,8 @@ jobs:
         shell: bash
         run: |
           if [ -f .agent/output.json ]; then
-            STATUS=$(jq -r '.status')
-            SUMMARY=$(jq -r '.summary')
+            STATUS=$(jq -r '.status' .agent/output.json)
+            SUMMARY=$(jq -r '.summary' .agent/output.json)
             echo "## Check Status: ${STATUS}" >> $GITHUB_STEP_SUMMARY
             echo "${SUMMARY}" >> $GITHUB_STEP_SUMMARY
 
