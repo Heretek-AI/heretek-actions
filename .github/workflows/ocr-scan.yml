@@ -57,34 +57,72 @@ jobs:
         with:
           fetch-depth: "0"
 
-      - name: "Run OCR Scan"
-        id: scan
+      - name: "Install and Configure OCR"
+        id: setup
         shell: bash
         env:
           OCR_LLM_URL: ${{ secrets.ocr_llm_url }}
           OCR_LLM_TOKEN: ${{ secrets.ocr_llm_token }}
           OCR_LLM_MODEL: ${{ secrets.ocr_llm_model || inputs.ocr-llm-model || vars.OCR_LLM_MODEL || 'claude-sonnet-4-20250514' }}
           OCR_USE_ANTHROPIC: ${{ inputs.ocr-use-anthropic || vars.OCR_LLM_USE_ANTHROPIC || 'true' }}
+        run: |
+          # Install OCR CLI globally (puts ocr on PATH)
+          npm install -g @alibaba-group/open-code-review
+
+          echo "✅ ocr installed: $(ocr --version 2>&1 || true)"
+
+          # Verify scan subcommand exists
+          if ! ocr scan --help >/dev/null 2>&1; then
+            echo "❌ 'ocr scan' subcommand not found"
+            exit 1
+          fi
+
+          # Configure LLM provider from workflow secrets
+          PROVIDER="ci-custom"
+          ocr config set provider "${PROVIDER}"
+          ocr config set "custom_providers.${PROVIDER}.url" "${OCR_LLM_URL}"
+          ocr config set "custom_providers.${PROVIDER}.api_key" "${OCR_LLM_TOKEN}"
+          ocr config set "custom_providers.${PROVIDER}.model" "${OCR_LLM_MODEL}"
+
+          if [ "${OCR_USE_ANTHROPIC}" = "true" ]; then
+            ocr config set "custom_providers.${PROVIDER}.protocol" "anthropic"
+          else
+            ocr config set "custom_providers.${PROVIDER}.protocol" "openai"
+          fi
+
+          # Test LLM connectivity
+          echo "🔌 Testing LLM connection..."
+          ocr llm test
+
+      - name: "Run OCR Scan"
+        id: scan
+        shell: bash
+        env:
+          OCR_LLM_MODEL: ${{ secrets.ocr_llm_model || inputs.ocr-llm-model || vars.OCR_LLM_MODEL || 'claude-sonnet-4-20250514' }}
           SCAN_PATH: ${{ inputs.scan-path || github.event.inputs.scan-path || '.' }}
         run: |
           mkdir -p .ocr
 
-          # Run full repo scan via npx (guarantees latest OCR CLI version)
           echo "🔍 Scanning: ${SCAN_PATH}"
-          npx @open-code-review/cli@latest scan \
+
+          # Run full repo scan — JSON output goes to stdout with --audience agent
+          ocr scan \
             --path "${SCAN_PATH}" \
             --format json \
             --audience agent \
-            2>&1 | tee .ocr/scan-output.txt
+            --model "${OCR_LLM_MODEL}" \
+            > .ocr/result.json 2>.ocr/scan-stderr.txt
 
-          # Check for result.json output (OCR writes here)
-          if [ -f ".ocr/result.json" ]; then
-            echo "OCR results saved to .ocr/result.json"
-          elif [ -f ".ocr/report.json" ]; then
-            echo "OCR results saved to .ocr/report.json"
+          # Show stderr (if any) for debugging
+          if [ -s .ocr/scan-stderr.txt ]; then
+            cat .ocr/scan-stderr.txt >&2
+          fi
+
+          if [ -s .ocr/result.json ]; then
+            echo "✅ OCR results saved to .ocr/result.json"
           else
-            # Try to extract from stdout
-            tail -c 100000 .ocr/scan-output.txt | grep -oP '\{.*\}' | head -1 > .ocr/result.json 2>/dev/null || true
+            echo "⚠️ No JSON output from OCR scan — scan produced no results or failed"
+            rm -f .ocr/result.json
           fi
 
       - name: "Build Agent Envelope"
