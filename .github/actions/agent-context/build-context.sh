@@ -12,6 +12,7 @@ INCLUDE_TESTS="${INCLUDE_TESTS:-false}"
 detect_stack() {
   local stack=()
   local manager=""
+  local pm=""
   local workspaces=()
 
   if [ -f "Cargo.toml" ]; then
@@ -171,6 +172,20 @@ query_github() {
 # --- Main ---
 echo "🔍 Building repo context..."
 
+# Initialize defaults before calling detection functions
+# (these functions write to GITHUB_ENV for downstream steps,
+# but we need local copies here)
+STACK="[]"
+PACKAGE_MANAGER=""
+WORKSPACES="[]"
+HOOKS_FRAMEWORK=""
+HOOKS_CONFIG=""
+NO_GITHUB_DATA="true"
+OPEN_ISSUES=0
+OPEN_PRS=0
+RECENT_PRS="[]"
+LABELS="[]"
+
 detect_stack
 detect_hooks
 query_github
@@ -188,12 +203,12 @@ AGENT_OUTPUTS=$(cat <<'OUTPUTS' | envsubst 2>/dev/null || cat
   "name": "${GITHUB_REPOSITORY#*/}",
   "owner": "${GITHUB_REPOSITORY_OWNER:-}",
   "default_branch": "${GITHUB_BASE_REF:-main}",
-  "stack": ${STACK:-"[]"},
-  "package_manager": "${PACKAGE_MANAGER:-}",
-  "workspaces": ${WORKSPACES:-"[]"},
+  "stack": ${STACK},
+  "package_manager": "${PACKAGE_MANAGER}",
+  "workspaces": ${WORKSPACES},
   "hooks": {
-    "framework": "${HOOKS_FRAMEWORK:-}",
-    "config": "${HOOKS_CONFIG:-}"
+    "framework": "${HOOKS_FRAMEWORK}",
+    "config": "${HOOKS_CONFIG}"
   },
   "structure": {
     "files": ${TOP_FILES},
