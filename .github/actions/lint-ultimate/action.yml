@@ -55,6 +55,20 @@ runs:
       with:
         fetch-depth: "0"
 
+    - name: "Validate Inputs"
+      shell: bash
+      run: |
+        VERSION="${{ inputs.linter-version }}"
+        if [[ ! "${VERSION}" =~ ^v[0-9]+(\.[0-9]+)*(-[a-zA-Z0-9.]+)?$ && "${VERSION}" != "latest" ]]; then
+          echo "::error::Invalid linter-version '${VERSION}'. Must match v<N>[.N...][-suffix] or 'latest'."
+          exit 1
+        fi
+        LINTER="${{ inputs.linter }}"
+        if [[ "${LINTER}" != "megalinter" && "${LINTER}" != "super-linter" ]]; then
+          echo "::error::Invalid linter '${LINTER}'. Must be 'megalinter' or 'super-linter'."
+          exit 1
+        fi
+
     - name: "Run MegaLinter"
       id: megalinter
       shell: bash
