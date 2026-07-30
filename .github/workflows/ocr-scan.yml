@@ -139,17 +139,25 @@ jobs:
           echo "   Concurrency: ${OCR_CONCURRENCY}"
           echo "   No-Plan: ${OCR_NO_PLAN}"
 
-          # Build flags
-          FLAGS=""
-          FLAGS="${FLAGS} --path \"${SCAN_PATH}\""
-          FLAGS="${FLAGS} --concurrency \"${OCR_CONCURRENCY}\""
-          if [ "${OCR_NO_PLAN}" = "true" ]; then
-            FLAGS="${FLAGS} --no-plan"
-          fi
-          FLAGS="${FLAGS} --format json --audience agent"
-
           # Run scan — JSON output to stdout, stderr to file
-          eval ocr scan ${FLAGS} \
+          # NOTE: Use the command directly, NOT eval with flag variables.
+          # Shell-quoting inside variables is lost on eval, making
+          # --path "." become --path with value "." (breaking the scan).
+          {
+            echo "👉 ocr scan --path ${SCAN_PATH} --concurrency ${OCR_CONCURRENCY} $([ "${OCR_NO_PLAN}" = "true" ] && echo '--no-plan') --format json --audience agent"
+          } >&2
+
+          if [ "${OCR_NO_PLAN}" = "true" ]; then
+            NO_PLAN="--no-plan"
+          else
+            NO_PLAN=""
+          fi
+
+          ocr scan \
+            --path "${SCAN_PATH}" \
+            --concurrency "${OCR_CONCURRENCY}" \
+            --format json --audience agent \
+            ${NO_PLAN:+--no-plan} \
             > .ocr/result.json 2>.ocr/scan-stderr.txt
 
           # Show stderr (if any) for debugging
