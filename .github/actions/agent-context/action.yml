@@ -46,8 +46,9 @@ runs:
         MAX_DEPTH: ${{ inputs.max-depth }}
         INCLUDE_TESTS: ${{ inputs.include-test-files }}
         GH_TOKEN: ${{ inputs.github-token }}
+        AGENT_ACTION_PATH: ${{ github.action_path }}
       run: |
-        ${{ github.action_path }}/build-context.sh
+        "${AGENT_ACTION_PATH}/build-context.sh"
 
     - name: "Upload Agent Output"
       uses: actions/upload-artifact@v4

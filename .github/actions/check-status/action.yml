@@ -48,8 +48,9 @@ runs:
         POLL_INTERVAL: ${{ inputs.poll-interval }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
+        AGENT_ACTION_PATH: ${{ github.action_path }}
       run: |
-        ${{ github.action_path }}/watch-checks.sh
+        "${AGENT_ACTION_PATH}/watch-checks.sh"
 
     - name: "Upload Agent Output"
       uses: actions/upload-artifact@v4

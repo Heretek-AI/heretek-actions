@@ -92,8 +92,9 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.github-token }}
         NPM_TOKEN: ${{ inputs.npm-token }}
+        AGENT_ACTION_PATH: ${{ github.action_path }}
       run: |
-        ${{ github.action_path }}/run-release.sh
+        "${AGENT_ACTION_PATH}/run-release.sh"
 
     - name: "Upload Agent Output"
       uses: actions/upload-artifact@v4

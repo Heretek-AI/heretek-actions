@@ -62,8 +62,9 @@ runs:
         PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         PR_BASE: ${{ github.event.pull_request.base.ref }}
         PR_HEAD: ${{ github.event.pull_request.head.ref }}
+        AGENT_ACTION_PATH: ${{ github.action_path }}
       run: |
-        ${{ github.action_path }}/analyze-pr.sh
+        "${AGENT_ACTION_PATH}/analyze-pr.sh"
 
     - name: "Upload Agent Output"
       uses: actions/upload-artifact@v4

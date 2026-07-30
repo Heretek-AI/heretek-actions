@@ -24,7 +24,7 @@ write_envelope() {
   mkdir -p "$AGENT_OUTPUT_DIR"
 
   local created_at
-  created_at="$(date -u +%Y-%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)"
+  created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   # Build envelope via jq if available, otherwise cat+json
   if command -v jq &>/dev/null; then

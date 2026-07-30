@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "${{ github.action_path }}/../agent-envelope.sh"
+source "${AGENT_ACTION_PATH}/../agent-envelope.sh"
 
 echo "📝 Generating Rust CI envelope..."
 

@@ -55,8 +55,9 @@ runs:
         ISSUE_TITLE: ${{ github.event.issue.title }}
         ISSUE_BODY: ${{ github.event.issue.body }}
         ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+        AGENT_ACTION_PATH: ${{ github.action_path }}
       run: |
-        ${{ github.action_path }}/triage-issue.sh
+        "${AGENT_ACTION_PATH}/triage-issue.sh"
 
     - name: "Upload Agent Output"
       uses: actions/upload-artifact@v4

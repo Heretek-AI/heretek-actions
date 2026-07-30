@@ -151,5 +151,6 @@ runs:
         TEST_EXIT: ${{ steps.test.outputs.exit_code }}
         AUDIT_EXIT: ${{ steps.audit.outputs.exit_code }}
         COV_EXIT: ${{ steps.coverage.outputs.exit_code }}
+        AGENT_ACTION_PATH: ${{ github.action_path }}
       run: |
-        ${{ github.action_path }}/write-envelope.sh
+        "${AGENT_ACTION_PATH}/write-envelope.sh"

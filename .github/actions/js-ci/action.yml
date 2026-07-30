@@ -173,5 +173,6 @@ runs:
         LINT_EXIT: ${{ steps.lint.outputs.exit_code }}
         TC_EXIT: ${{ steps.typecheck.outputs.exit_code }}
         TEST_EXIT: ${{ steps.test.outputs.exit_code }}
+        AGENT_ACTION_PATH: ${{ github.action_path }}
       run: |
-        ${{ github.action_path }}/write-envelope.sh
+        "${AGENT_ACTION_PATH}/write-envelope.sh"

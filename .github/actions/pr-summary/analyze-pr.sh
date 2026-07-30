@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Source the envelope helper
-source "${{ github.action_path }}/../agent-envelope.sh"
+source "${AGENT_ACTION_PATH}/../agent-envelope.sh"
 
 echo "📝 Analyzing PR #${PR_NUMBER}: ${PR_TITLE}"
 
