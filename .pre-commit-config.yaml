@@ -33,19 +33,6 @@ repos:
         stages: [pre-commit]
         exclude: (.*\.lock|.*\.lockb|pnpm-lock\.yaml|yarn\.lock|Cargo\.lock|poetry\.lock|Pipfile\.lock)
 
-  # --- Agent-facing hooks ---
-  - repo: https://github.com/Heretek-AI/heretek-actions
-    rev: v1
-    hooks:
-      - id: agent-context
-        name: "Agent Context"
-        description: "Generate repo context file for AI agents"
-        language: python
-        pass_filenames: false
-        always_run: true
-        entry: python -m heretek_hooks.agent_context
-        stages: [manual]
-
   # --- Language-specific hooks (auto-detected) ---
 
   # Rust
