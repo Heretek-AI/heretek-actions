@@ -77,18 +77,13 @@ jobs:
             exit 1
           fi
 
-          # Configure LLM provider from workflow secrets
-          PROVIDER="ci-custom"
-          ocr config set provider "${PROVIDER}"
-          ocr config set "custom_providers.${PROVIDER}.url" "${OCR_LLM_URL}"
-          ocr config set "custom_providers.${PROVIDER}.api_key" "${OCR_LLM_TOKEN}"
-          ocr config set "custom_providers.${PROVIDER}.model" "${OCR_LLM_MODEL}"
-
-          if [ "${OCR_USE_ANTHROPIC}" = "true" ]; then
-            ocr config set "custom_providers.${PROVIDER}.protocol" "anthropic"
-          else
-            ocr config set "custom_providers.${PROVIDER}.protocol" "openai"
-          fi
+          # Configure LLM from workflow secrets using official CI pattern
+          # See: https://github.com/alibaba/open-code-review/blob/main/pages/src/content/docs/en/integrations/ci.md
+          ocr config set llm.url "${OCR_LLM_URL}"
+          ocr config set llm.auth_token "${OCR_LLM_TOKEN}"
+          ocr config set llm.model "${OCR_LLM_MODEL}"
+          ocr config set llm.use_anthropic "${OCR_USE_ANTHROPIC}"
+          ocr config set llm.extra_body '{"thinking": {"type": "disabled"}}'
 
           # Test LLM connectivity
           echo "🔌 Testing LLM connection..."
@@ -98,7 +93,6 @@ jobs:
         id: scan
         shell: bash
         env:
-          OCR_LLM_MODEL: ${{ secrets.ocr_llm_model || inputs.ocr-llm-model || vars.OCR_LLM_MODEL || 'claude-sonnet-4-20250514' }}
           SCAN_PATH: ${{ inputs.scan-path || github.event.inputs.scan-path || '.' }}
         run: |
           mkdir -p .ocr
@@ -106,11 +100,11 @@ jobs:
           echo "🔍 Scanning: ${SCAN_PATH}"
 
           # Run full repo scan — JSON output goes to stdout with --audience agent
+          # Model is already configured via ocr config set in setup step
           ocr scan \
             --path "${SCAN_PATH}" \
             --format json \
             --audience agent \
-            --model "${OCR_LLM_MODEL}" \
             > .ocr/result.json 2>.ocr/scan-stderr.txt
 
           # Show stderr (if any) for debugging
