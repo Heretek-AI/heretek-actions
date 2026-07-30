@@ -1,0 +1,122 @@
+name: "Universal Release"
+on:
+  workflow_call:
+    inputs:
+      release-type:
+        description: "Release target: docker, flatpak, npm, github-release"
+        type: string
+        required: true
+      version:
+        description: "Semver version (e.g., v1.2.3)"
+        type: string
+        required: true
+      dockerfile:
+        description: "Path to Dockerfile (docker type)"
+        type: string
+        default: "./Dockerfile"
+        required: false
+      docker-image-name:
+        description: "Docker image name (docker type)"
+        type: string
+        default: ""
+        required: false
+      docker-platforms:
+        description: "Comma-separated platforms (docker type)"
+        type: string
+        default: "linux/amd64,linux/arm64"
+        required: false
+      flatpak-manifest:
+        description: "Path to Flatpak manifest (flatpak type)"
+        type: string
+        default: ""
+        required: false
+      flatpak-branch:
+        description: "Flatpak branch (flatpak type)"
+        type: string
+        default: "stable"
+        required: false
+      npm-dry-run:
+        description: "Dry run for npm publish"
+        type: string
+        default: "false"
+        required: false
+      release-notes:
+        description: "Custom release notes"
+        type: string
+        default: ""
+        required: false
+      generate-notes:
+        description: "Auto-generate release notes from commits"
+        type: string
+        default: "true"
+        required: false
+      prerelease:
+        description: "Mark as prerelease"
+        type: string
+        default: "false"
+        required: false
+      make-latest:
+        description: "Mark as latest release"
+        type: string
+        default: "true"
+        required: false
+      assets:
+        description: "JSON array of asset paths ({name, path} format)"
+        type: string
+        default: "[]"
+        required: false
+
+    secrets:
+      github-token:
+        description: "GitHub token"
+        required: false
+      npm-token:
+        description: "npm token (for npm releases)"
+        required: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: "QEMU Setup (Docker)"
+        if: inputs.release-type == 'docker'
+        uses: docker/setup-qemu-action@v3
+
+      - name: "Docker Buildx Setup (Docker)"
+        if: inputs.release-type == 'docker'
+        uses: docker/setup-buildx-action@v3
+
+      - name: "Docker Login"
+        if: inputs.release-type == 'docker'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.github-token || secrets.GITHUB_TOKEN }}
+
+      - name: "Run Release"
+        uses: Heretek-AI/heretek-actions/.github/actions/release@v1
+        with:
+          release-type: ${{ inputs.release-type }}
+          version: ${{ inputs.version }}
+          github-token: ${{ secrets.github-token || secrets.GITHUB_TOKEN }}
+          dockerfile: ${{ inputs.dockerfile }}
+          docker-image-name: ${{ inputs.docker-image-name || github.repository }}
+          docker-platforms: ${{ inputs.docker-platforms }}
+          flatpak-manifest: ${{ inputs.flatpak-manifest }}
+          flatpak-branch: ${{ inputs.flatpak-branch }}
+          npm-token: ${{ secrets.npm-token }}
+          npm-dry-run: ${{ inputs.npm-dry-run }}
+          release-notes: ${{ inputs.release-notes }}
+          generate-notes: ${{ inputs.generate-notes }}
+          prerelease: ${{ inputs.prerelease }}
+          make-latest: ${{ inputs.make-latest }}
+          assets: ${{ inputs.assets }}

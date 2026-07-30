@@ -1,0 +1,60 @@
+name: "Review"
+description: |
+  Lightweight automated code review focused on structural issues, missing
+  tests, dead code, and common patterns. Produces findings array in
+  .agent/output.json for agent consumption.
+
+author: "Heretek-AI"
+
+inputs:
+  github-token:
+    description: "GitHub token for API access"
+    default: "${{ github.token }}"
+    required: false
+  max-findings:
+    description: "Maximum findings to report"
+    default: "30"
+    required: false
+  severity-threshold:
+    description: "Minimum severity to report (error, warning, info)"
+    default: "warning"
+    required: false
+
+outputs:
+  agent_action:
+    description: "Always 'review'"
+    value: "review"
+  status:
+    description: "success | failure | partial"
+    value: ${{ steps.review.outputs.status }}
+  summary:
+    description: "Review summary"
+    value: ${{ steps.review.outputs.summary }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Checkout"
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: "0"
+
+    - name: "Run Review"
+      id: review
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        MAX_FINDINGS: ${{ inputs.max-findings }}
+        SEVERITY_THRESHOLD: ${{ inputs.severity-threshold }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: |
+        ${{ github.action_path }}/run-review.sh
+
+    - name: "Upload Agent Output"
+      uses: actions/upload-artifact@v4
+      with:
+        name: agent-output
+        path: .agent/output.json
+        if-no-files-found: warn
+        retention-days: 7

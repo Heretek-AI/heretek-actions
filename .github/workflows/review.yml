@@ -1,0 +1,45 @@
+name: "Automated Review"
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Run Review"
+        uses: Heretek-AI/heretek-actions/.github/actions/review@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Summarize Review"
+        shell: bash
+        run: |
+          if [ -f .agent/output.json ]; then
+            ERROR_COUNT=$(cat .agent/output.json | jq '.findings | map(select(.severity == "error")) | length')
+            WARN_COUNT=$(cat .agent/output.json | jq '.findings | map(select(.severity == "warning")) | length')
+            INFO_COUNT=$(cat .agent/output.json | jq '.findings | map(select(.severity == "info")) | length')
+
+            echo "## Review Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔴 Error | ${ERROR_COUNT} |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟡 Warning | ${WARN_COUNT} |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔵 Info | ${INFO_COUNT} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            if [ "$(cat .agent/output.json | jq '.findings | length')" -gt 0 ] && [ "$(cat .agent/output.json | jq '.findings | length')" -le 20 ]; then
+              echo "### Findings" >> $GITHUB_STEP_SUMMARY
+              cat .agent/output.json | jq -r '.findings[] | "- [\(.severity)] \(.file):\(.line) — \(.message)"' >> $GITHUB_STEP_SUMMARY
+            fi
+          fi

@@ -1,0 +1,240 @@
+name: "Universal CI Check"
+on:
+  workflow_call:
+    inputs:
+      rust:
+        description: "Enable Rust checks (auto-detected by default)"
+        type: string
+        default: "auto"
+        required: false
+      javascript:
+        description: "Enable JS/TS checks (auto-detected by default)"
+        type: string
+        default: "auto"
+        required: false
+      python:
+        description: "Enable Python checks (auto-detected by default)"
+        type: string
+        default: "auto"
+        required: false
+      docker:
+        description: "Enable Docker checks (auto-detected by default)"
+        type: string
+        default: "auto"
+        required: false
+      rust-toolchain:
+        description: "Rust toolchain (stable/nightly)"
+        type: string
+        default: "stable"
+        required: false
+      node-version:
+        description: "Node.js version for JS/TS projects"
+        type: string
+        default: "20"
+        required: false
+      python-version:
+        description: "Python version for Python projects"
+        type: string
+        default: "3.12"
+        required: false
+      enable-coverage:
+        description: "Enable code coverage (where supported)"
+        type: string
+        default: "false"
+        required: false
+      enable-audit:
+        description: "Enable security audit (where supported)"
+        type: string
+        default: "false"
+        required: false
+    secrets:
+      github-token:
+        description: "GitHub token"
+        required: false
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  # --- Auto-detection job ---
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      has_rust: ${{ steps.detect.outputs.has_rust }}
+      has_js: ${{ steps.detect.outputs.has_js }}
+      has_python: ${{ steps.detect.outputs.has_python }}
+      has_docker: ${{ steps.detect.outputs.has_docker }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: "1"
+
+      - name: "Detect Languages"
+        id: detect
+        shell: bash
+        run: |
+          # Rust
+          HAS_RUST="false"
+          if ls Cargo.toml 2>/dev/null; then HAS_RUST="true"; fi
+          if [ "${{ inputs.rust }}" = "true" ]; then HAS_RUST="true"; fi
+          if [ "${{ inputs.rust }}" = "false" ]; then HAS_RUST="false"; fi
+
+          # JS/TS
+          HAS_JS="false"
+          if ls package.json 2>/dev/null; then HAS_JS="true"; fi
+          if [ "${{ inputs.javascript }}" = "true" ]; then HAS_JS="true"; fi
+          if [ "${{ inputs.javascript }}" = "false" ]; then HAS_JS="false"; fi
+
+          # Python
+          HAS_PYTHON="false"
+          if ls pyproject.toml setup.py requirements.txt 2>/dev/null; then HAS_PYTHON="true"; fi
+          if [ "${{ inputs.python }}" = "true" ]; then HAS_PYTHON="true"; fi
+          if [ "${{ inputs.python }}" = "false" ]; then HAS_PYTHON="false"; fi
+
+          # Docker
+          HAS_DOCKER="false"
+          if ls Dockerfile docker-compose.yml compose.yml 2>/dev/null; then HAS_DOCKER="true"; fi
+          if [ "${{ inputs.docker }}" = "true" ]; then HAS_DOCKER="true"; fi
+          if [ "${{ inputs.docker }}" = "false" ]; then HAS_DOCKER="false"; fi
+
+          echo "has_rust=${HAS_RUST}" >> "$GITHUB_OUTPUT"
+          echo "has_js=${HAS_JS}" >> "$GITHUB_OUTPUT"
+          echo "has_python=${HAS_PYTHON}" >> "$GITHUB_OUTPUT"
+          echo "has_docker=${HAS_DOCKER}" >> "$GITHUB_OUTPUT"
+
+          echo "🔍 Detected: Rust=${HAS_RUST} JS/TS=${HAS_JS} Python=${HAS_PYTHON} Docker=${HAS_DOCKER}"
+
+  # --- Rust CI ---
+  rust:
+    needs: detect
+    if: needs.detect.outputs.has_rust == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Heretek-AI/heretek-actions/.github/actions/rust-ci@v1
+        with:
+          toolchain: ${{ inputs.rust-toolchain }}
+          enable-coverage: ${{ inputs.enable-coverage }}
+          enable-audit: ${{ inputs.enable-audit }}
+
+      - name: "Upload Agent Output"
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-output-rust
+          path: .agent/output.json
+          if-no-files-found: warn
+
+  # --- JavaScript/TypeScript CI ---
+  javascript:
+    needs: detect
+    if: needs.detect.outputs.has_js == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Heretek-AI/heretek-actions/.github/actions/js-ci@v1
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: "Upload Agent Output"
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-output-js
+          path: .agent/output.json
+          if-no-files-found: warn
+
+  # --- Python CI ---
+  python:
+    needs: detect
+    if: needs.detect.outputs.has_python == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Heretek-AI/heretek-actions/.github/actions/python-ci@v1
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: "Upload Agent Output"
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-output-python
+          path: .agent/output.json
+          if-no-files-found: warn
+
+  # --- Docker check ---
+  docker:
+    needs: detect
+    if: needs.detect.outputs.has_docker == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Dockerfile Lint (hadolint)"
+        uses: hadolint/hadolint-action@v3.1.0
+        continue-on-error: true
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+
+      - name: "Build Docker Image"
+        continue-on-error: true
+        shell: bash
+        run: |
+          docker build -t ci-check:latest -f Dockerfile . 2>&1 | tee .docker-build-output.txt
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+
+  # --- Merge results ---
+  merge-results:
+    needs: [detect, rust, javascript, python]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Download All Agent Outputs"
+        uses: actions/download-artifact@v4
+        with:
+          pattern: agent-output-*
+          merge-multiple: true
+          path: .agent/results
+
+      - name: "Merge Envelopes"
+        shell: bash
+        run: |
+          mkdir -p .agent
+          source .github/actions/agent-envelope.sh
+
+          CHECKS='[]'
+          ALL_PASS=true
+
+          for f in .agent/results/*.json; do
+            if [ -f "$f" ]; then
+              STATUS=$(cat "$f" | jq -r '.status // "unknown"')
+              SUMMARY=$(cat "$f" | jq -r '.summary // ""')
+              ACTION=$(cat "$f" | jq -r '.agent_action // "unknown"')
+              if [ "$STATUS" != "success" ]; then
+                ALL_PASS=false
+              fi
+              CHECKS=$(echo "$CHECKS" | jq --arg a "$ACTION" --arg s "$STATUS" --arg sum "$SUMMARY" '. + [{"name": $a, "status": $s, "summary": $sum}]')
+            fi
+          done
+
+          export AGENT_CHECKS="$CHECKS"
+          SUMMARY=$(echo "$CHECKS" | jq -r '[.[] | "\(.name)=\(.status)"] | join(", ")')
+          [ "$ALL_PASS" = true ] && STATUS="success" || STATUS="failure"
+
+          write_envelope "ci-check" "$STATUS" "All checks: ${SUMMARY}"
+
+      - name: "Summarize"
+        shell: bash
+        run: |
+          if [ -f .agent/output.json ]; then
+            echo "## CI Check Results" >> $GITHUB_STEP_SUMMARY
+            cat .agent/output.json | jq -r '.summary' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Table
+            echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+            echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+            cat .agent/output.json | jq -r '.checks[] | "| \(.name) | \(.status) |"' >> $GITHUB_STEP_SUMMARY
+          fi

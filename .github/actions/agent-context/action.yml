@@ -1,0 +1,58 @@
+name: "Agent Context"
+description: |
+  Scans the repository structure and produces a machine-readable context file
+  (.agent/output.json) containing stack information, workspace layout, configured
+  hooks, open issues, and recent PRs for agent consumption.
+
+author: "Heretek-AI"
+
+inputs:
+  max-depth:
+    description: "Maximum directory depth for structure scanning"
+    default: "3"
+    required: false
+  include-test-files:
+    description: "Whether to include test directory contents in the output"
+    default: "false"
+    required: false
+  github-token:
+    description: "GitHub token for API queries (issues, PRs)"
+    default: "${{ github.token }}"
+    required: false
+
+outputs:
+  agent_action:
+    description: "Always 'agent-context'"
+    value: "agent-context"
+  status:
+    description: "success | failure"
+    value: ${{ steps.build.outputs.status }}
+  summary:
+    description: "Human-readable summary of repo context"
+    value: ${{ steps.build.outputs.summary }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Checkout"
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: "1"
+
+    - name: "Build Repo Context"
+      id: build
+      shell: bash
+      env:
+        MAX_DEPTH: ${{ inputs.max-depth }}
+        INCLUDE_TESTS: ${{ inputs.include-test-files }}
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        ${{ github.action_path }}/build-context.sh
+
+    - name: "Upload Agent Output"
+      uses: actions/upload-artifact@v4
+      with:
+        name: agent-output
+        path: .agent/output.json
+        if-no-files-found: warn
+        retention-days: 7

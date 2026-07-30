@@ -1,0 +1,104 @@
+name: "Universal Release"
+description: |
+  Composite action for creating releases: Docker images (ghcr.io), Flatpak
+  packages, npm packages, or plain GitHub releases. Outputs .agent/output.json.
+
+author: "Heretek-AI"
+
+inputs:
+  release-type:
+    description: "Release target: docker, flatpak, npm, github-release"
+    required: true
+  version:
+    description: "Semver version (e.g., v1.2.3)"
+    required: true
+  github-token:
+    description: "GitHub token"
+    default: "${{ github.token }}"
+    required: false
+  dockerfile:
+    description: "Path to Dockerfile (docker type)"
+    default: "./Dockerfile"
+    required: false
+  docker-image-name:
+    description: "Docker image name (docker type)"
+    default: "${{ github.repository }}"
+    required: false
+  docker-platforms:
+    description: "Comma-separated platforms (docker type)"
+    default: "linux/amd64,linux/arm64"
+    required: false
+  flatpak-manifest:
+    description: "Path to Flatpak manifest (flatpak type)"
+    default: "./build-aux/com.example.App.yml"
+    required: false
+  flatpak-branch:
+    description: "Flatpak branch (flatpak type)"
+    default: "stable"
+    required: false
+  npm-token:
+    description: "npm authentication token (npm type)"
+    required: false
+  npm-dry-run:
+    description: "Dry run for npm publish"
+    default: "false"
+    required: false
+  release-notes:
+    description: "Custom release notes"
+    default: ""
+    required: false
+  generate-notes:
+    description: "Auto-generate release notes from commits"
+    default: "true"
+    required: false
+  prerelease:
+    description: "Mark as prerelease"
+    default: "false"
+    required: false
+  make-latest:
+    description: "Mark as latest release"
+    default: "true"
+    required: false
+  assets:
+    description: "JSON array of asset paths to upload ({name, path} format)"
+    default: "[]"
+    required: false
+
+outputs:
+  agent_action:
+    description: "Always 'release'"
+    value: "release"
+  status:
+    description: "success | failure"
+    value: ${{ steps.release.outputs.status }}
+  summary:
+    description: "Release summary"
+    value: ${{ steps.release.outputs.summary }}
+  release_url:
+    description: "URL of the created release"
+    value: ${{ steps.release.outputs.release_url }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Checkout"
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: "0"
+
+    - name: "Run Release"
+      id: release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        NPM_TOKEN: ${{ inputs.npm-token }}
+      run: |
+        ${{ github.action_path }}/run-release.sh
+
+    - name: "Upload Agent Output"
+      uses: actions/upload-artifact@v4
+      with:
+        name: agent-output
+        path: .agent/output.json
+        if-no-files-found: warn
+        retention-days: 30

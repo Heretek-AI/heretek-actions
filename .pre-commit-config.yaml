@@ -1,0 +1,121 @@
+# Heretek Actions — Universal pre-commit hook configuration
+# https://pre-commit.com
+#
+# Install: pip install pre-commit && pre-commit install
+# Run all: pre-commit run --all-files
+# Auto-update: pre-commit autoupdate
+
+repos:
+  # --- Universal hooks (apply to all projects) ---
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # --- Security scanning ---
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+        stages: [pre-commit]
+        exclude: (.*\.lock|.*\.lockb|pnpm-lock\.yaml|yarn\.lock|Cargo\.lock|poetry\.lock|Pipfile\.lock)
+
+  # --- Agent-facing hooks ---
+  - repo: https://github.com/Heretek-AI/heretek-actions
+    rev: v1
+    hooks:
+      - id: agent-context
+        name: "Agent Context"
+        description: "Generate repo context file for AI agents"
+        language: python
+        pass_filenames: false
+        always_run: true
+        entry: python -m heretek_hooks.agent_context
+        stages: [manual]
+
+  # --- Language-specific hooks (auto-detected) ---
+
+  # Rust
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      - id: cargo-check
+        stages: [manual]
+      - id: clippy
+        stages: [manual]
+      - id: fmt
+        stages: [manual]
+
+  # JavaScript/TypeScript (requires node_modules)
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.0.0
+    hooks:
+      - id: eslint
+        types_or: [javascript, jsx, typescript, tsx]
+        additional_dependencies:
+          - eslint@9
+        stages: [manual]
+        exclude: (node_modules/|\.next/|dist/|build/)
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        types_or: [javascript, jsx, typescript, tsx, json, css, scss, markdown, yaml]
+        stages: [manual]
+        exclude: (node_modules/|\.next/|dist/|build/)
+
+  # Python
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.0
+    hooks:
+      - id: ruff
+        types_or: [python, pyi]
+        stages: [manual]
+      - id: ruff-format
+        types_or: [python, pyi]
+        stages: [manual]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.0
+    hooks:
+      - id: mypy
+        stages: [manual]
+        additional_dependencies: [types-all]
+
+  # Shell
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        args: [--severity=warning]
+        stages: [manual]
+        exclude: (\.husky/)
+
+  # Docker
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.13.0-beta
+    hooks:
+      - id: hadolint
+        stages: [manual]
+
+  # Commit message
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.2.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: []

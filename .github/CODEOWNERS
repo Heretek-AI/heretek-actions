@@ -1,0 +1,22 @@
+# Default owners
+* @Heretek-AI
+
+# Agent-facing actions
+/.github/actions/agent-context/ @Heretek-AI
+/.github/actions/pr-summary/ @Heretek-AI
+/.github/actions/issue-triage/ @Heretek-AI
+/.github/actions/check-status/ @Heretek-AI
+/.github/actions/review/ @Heretek-AI
+
+# CI composite actions
+/.github/actions/rust-ci/ @Heretek-AI
+/.github/actions/js-ci/ @Heretek-AI
+/.github/actions/python-ci/ @Heretek-AI
+/.github/actions/release/ @Heretek-AI
+
+# Workflows
+/.github/workflows/ @Heretek-AI
+
+# Configuration
+/.agent/ @Heretek-AI
+/.pre-commit-config.yaml @Heretek-AI

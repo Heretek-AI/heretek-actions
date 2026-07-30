@@ -1,0 +1,50 @@
+name: "Check Status"
+on:
+  workflow_call:
+    inputs:
+      wait-for-completion:
+        description: "Max seconds to wait for all checks to complete"
+        type: string
+        default: "600"
+        required: false
+      poll-interval:
+        description: "Seconds between polls"
+        type: string
+        default: "15"
+        required: false
+    secrets:
+      github-token:
+        description: "GitHub token"
+        required: false
+
+permissions:
+  contents: read
+  checks: read
+  pull-requests: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Watch Check Status"
+        uses: Heretek-AI/heretek-actions/.github/actions/check-status@v1
+        with:
+          github-token: ${{ secrets.github-token || secrets.GITHUB_TOKEN }}
+          wait-for-completion: ${{ inputs.wait-for-completion }}
+          poll-interval: ${{ inputs.poll-interval }}
+
+      - name: "Read Agent Output"
+        shell: bash
+        run: |
+          if [ -f .agent/output.json ]; then
+            STATUS=$(cat .agent/output.json | jq -r '.status')
+            SUMMARY=$(cat .agent/output.json | jq -r '.summary')
+            echo "## Check Status: ${STATUS}" >> $GITHUB_STEP_SUMMARY
+            echo "${SUMMARY}" >> $GITHUB_STEP_SUMMARY
+
+            # Output merged status
+            echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
+            echo "summary=${SUMMARY}" >> "$GITHUB_OUTPUT"
+          fi

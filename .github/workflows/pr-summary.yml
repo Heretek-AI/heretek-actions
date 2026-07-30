@@ -1,0 +1,30 @@
+name: "PR Summary"
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: read
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Generate PR Summary"
+        uses: Heretek-AI/heretek-actions/.github/actions/pr-summary@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Read Agent Output"
+        shell: bash
+        run: |
+          if [ -f .agent/output.json ]; then
+            echo "### PR Summary" >> $GITHUB_STEP_SUMMARY
+            cat .agent/output.json | jq -r '. | "\(.summary)"' >> $GITHUB_STEP_SUMMARY
+          fi

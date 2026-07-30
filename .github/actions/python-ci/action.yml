@@ -1,0 +1,154 @@
+name: "Python CI"
+description: |
+  Composite action for Python projects: setup Python, cache, install deps,
+  lint (via ruff), typecheck (via mypy), and test (via pytest).
+  Outputs .agent/output.json.
+
+author: "Heretek-AI"
+
+inputs:
+  working-directory:
+    description: "Working directory"
+    default: "."
+    required: false
+  python-version:
+    description: "Python version"
+    default: "3.12"
+    required: false
+  package-manager:
+    description: "Package manager: pip, pipenv, poetry, uv, or auto (default)"
+    default: "auto"
+    required: false
+  lint-command:
+    description: "Override lint command"
+    default: ""
+    required: false
+  test-command:
+    description: "Override test command"
+    default: ""
+    required: false
+  lint-continue-on-error:
+    description: "Continue if lint fails"
+    default: "false"
+    required: false
+  test-continue-on-error:
+    description: "Continue if tests fail"
+    default: "false"
+    required: false
+
+outputs:
+  agent_action:
+    description: "Always 'ci-python'"
+    value: "ci-python"
+  status:
+    description: "success | failure | partial"
+    value: ${{ steps.envelope.outputs.status }}
+  summary:
+    description: "CI summary"
+    value: ${{ steps.envelope.outputs.summary }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Detect Package Manager"
+      id: detect
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        PM="${{ inputs.package-manager }}"
+        if [ "$PM" = "auto" ]; then
+          if grep -q "\[tool.poetry\]" pyproject.toml 2>/dev/null; then PM="poetry"
+          elif [ -f "Pipfile" ]; then PM="pipenv"
+          elif [ -f "uv.lock" ]; then PM="uv"
+          else PM="pip"
+          fi
+        fi
+        echo "pm=${PM}" >> "$GITHUB_OUTPUT"
+        echo "manager: ${PM}"
+
+    - name: "Setup Python"
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: "Cache Dependencies"
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ inputs.working-directory }}/.venv
+          ${{ inputs.working-directory }}/__pypackages__
+          ~/.cache/pip
+          ~/.cache/pypoetry
+        key: ${{ runner.os }}-py${{ inputs.python-version }}-${{ hashFiles(format('{0}/{1}', inputs.working-directory, inputs.package-manager == 'poetry' && 'poetry.lock' || inputs.package-manager == 'pipenv' && 'Pipfile.lock' || 'pyproject.toml')) }}
+
+    - name: "Install Dependencies"
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        case "${{ steps.detect.outputs.pm }}" in
+          poetry)
+            pip install poetry
+            poetry install
+            ;;
+          pipenv)
+            pip install pipenv
+            pipenv install --dev
+            ;;
+          uv)
+            pip install uv
+            uv sync
+            ;;
+          *)
+            pip install -e ".[dev]" 2>/dev/null || pip install -r requirements.txt 2>/dev/null || pip install -r requirements-dev.txt 2>/dev/null || true
+            pip install ruff pytest mypy
+            ;;
+        esac
+
+    - name: "Lint (ruff)"
+      id: lint
+      continue-on-error: ${{ inputs.lint-continue-on-error == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        CMD="${{ inputs.lint-command }}"
+        if [ -z "$CMD" ]; then
+          CMD="ruff check ."
+        fi
+        eval "$CMD" 2>&1 | tee .lint-output.txt
+        echo "exit_code=$?" >> $GITHUB_OUTPUT
+
+    - name: "TypeCheck (mypy)"
+      id: typecheck
+      continue-on-error: true
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if [ -f "mypy.ini" ] || [ -f ".mypy.ini" ] || grep -q "\[tool.mypy" pyproject.toml 2>/dev/null; then
+          mypy . 2>&1 | tee .typecheck-output.txt
+        else
+          echo "No mypy config — skipping typecheck"
+        fi
+        echo "exit_code=$?" >> $GITHUB_OUTPUT
+
+    - name: "Test (pytest)"
+      id: test
+      continue-on-error: ${{ inputs.test-continue-on-error == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        CMD="${{ inputs.test-command }}"
+        if [ -z "$CMD" ]; then
+          CMD="python -m pytest . --junitxml=test-results.xml -v"
+        fi
+        eval "$CMD" 2>&1 | tee .test-output.txt
+        echo "exit_code=$?" >> $GITHUB_OUTPUT
+
+    - name: "Generate Agent Envelope"
+      id: envelope
+      shell: bash
+      env:
+        LINT_EXIT: ${{ steps.lint.outputs.exit_code }}
+        TC_EXIT: ${{ steps.typecheck.outputs.exit_code }}
+        TEST_EXIT: ${{ steps.test.outputs.exit_code }}
+      run: |
+        ${{ github.action_path }}/write-envelope.sh

@@ -1,0 +1,33 @@
+# Agent output
+.agent/output.json
+.agent/results/
+
+# Secrets baseline (generated)
+.secrets.baseline
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+
+# Node
+node_modules/
+.pnpm-store/
+
+# Rust
+target/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated
+*.log
+.coverage/

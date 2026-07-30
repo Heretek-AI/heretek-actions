@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Heretek-AI/heretek-actions/.agent/schema.json",
+  "title": "Heretek Actions Agent Envelope",
+  "description": "Standard JSON envelope produced by all Heretek Actions for agent consumption",
+  "type": "object",
+  "required": ["agent_action", "version", "status", "summary", "created_at"],
+  "properties": {
+    "agent_action": {
+      "description": "The action that produced this envelope",
+      "type": "string",
+      "enum": [
+        "agent-context",
+        "pr-summary",
+        "issue-triage",
+        "check-status",
+        "review",
+        "ci-rust",
+        "ci-js",
+        "ci-python",
+        "release",
+        "pre-commit"
+      ]
+    },
+    "version": {
+      "description": "Schema version",
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "status": {
+      "description": "Overall status of the action run",
+      "type": "string",
+      "enum": ["success", "failure", "partial", "skipped", "cancelled"]
+    },
+    "summary": {
+      "description": "Human-readable one-line summary of results",
+      "type": "string",
+      "maxLength": 200
+    },
+    "outputs": {
+      "description": "Action-specific structured data",
+      "type": "object",
+      "default": {}
+    },
+    "suggestions": {
+      "description": "Suggested actions for an agent to take based on results",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "reason"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "issue:create",
+              "issue:close",
+              "issue:label",
+              "pr:create",
+              "pr:merge",
+              "pr:review_request",
+              "pr:comment",
+              "comment:post",
+              "label:add",
+              "label:remove",
+              "review:request",
+              "release:create",
+              "none"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the agent should take this action",
+            "maxLength": 500
+          },
+          "data": {
+            "type": "object",
+            "description": "Parameters for the suggested action",
+            "default": {}
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "default": "medium"
+          }
+        }
+      }
+    },
+    "checks": {
+      "description": "Individual check results (for CI-type actions)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "status"],
+        "properties": {
+          "name": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["pass", "fail", "warn", "skip", "error"]
+          },
+          "summary": { "type": "string", "maxLength": 200 },
+          "details_url": { "type": "string", "format": "uri" },
+          "duration_ms": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "findings": {
+      "description": "Individual issues found (lint errors, bugs, etc.)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["error", "warning", "info", "note"]
+          },
+          "rule": { "type": "string" },
+          "file": { "type": "string" },
+          "line": { "type": "integer", "minimum": 0 },
+          "column": { "type": "integer", "minimum": 0 },
+          "message": { "type": "string" },
+          "suggested_fix": { "type": "string" }
+        },
+        "required": ["severity", "message"]
+      }
+    },
+    "release": {
+      "description": "Release information (for release-type actions)",
+      "type": "object",
+      "properties": {
+        "version": { "type": "string" },
+        "tag": { "type": "string" },
+        "published": { "type": "boolean" },
+        "assets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "url": { "type": "string", "format": "uri" },
+              "size_bytes": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "release_url": { "type": "string", "format": "uri" }
+      }
+    },
+    "created_at": {
+      "description": "ISO 8601 timestamp of when this envelope was produced",
+      "type": "string",
+      "format": "date-time"
+    },
+    "duration_ms": {
+      "description": "Total execution time in milliseconds",
+      "type": "integer",
+      "minimum": 0
+    },
+    "repository": {
+      "description": "Repository context",
+      "type": "object",
+      "properties": {
+        "owner": { "type": "string" },
+        "repo": { "type": "string" },
+        "sha": { "type": "string" },
+        "ref": { "type": "string" },
+        "workflow": { "type": "string" },
+        "run_id": { "type": "integer" }
+      }
+    }
+  }
+}

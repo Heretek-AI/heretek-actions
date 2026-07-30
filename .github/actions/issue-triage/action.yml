@@ -1,0 +1,67 @@
+name: "Issue Triage"
+description: |
+  Classifies new GitHub issues, suggests labels, detects duplicates,
+  auto-assigns priorities, and posts a structured comment.
+  Outputs .agent/output.json for agent consumption.
+
+author: "Heretek-AI"
+
+inputs:
+  github-token:
+    description: "GitHub token for API access"
+    default: "${{ github.token }}"
+    required: false
+  auto-label:
+    description: "Auto-apply labels to issues"
+    default: "true"
+    required: false
+  post-comment:
+    description: "Post triage results as an issue comment"
+    default: "true"
+    required: false
+  duplicate-threshold:
+    description: "Minimum similarity score (0-1) to flag as potential duplicate"
+    default: "0.7"
+    required: false
+
+outputs:
+  agent_action:
+    description: "Always 'issue-triage'"
+    value: "issue-triage"
+  status:
+    description: "success | failure"
+    value: ${{ steps.triage.outputs.status }}
+  summary:
+    description: "Triage summary text"
+    value: ${{ steps.triage.outputs.summary }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Checkout"
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: "1"
+
+    - name: "Triage Issue"
+      id: triage
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        AUTO_LABEL: ${{ inputs.auto-label }}
+        POST_COMMENT: ${{ inputs.post-comment }}
+        DUPLICATE_THRESHOLD: ${{ inputs.duplicate-threshold }}
+        ISSUE_NUMBER: ${{ github.event.issue.number }}
+        ISSUE_TITLE: ${{ github.event.issue.title }}
+        ISSUE_BODY: ${{ github.event.issue.body }}
+        ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+      run: |
+        ${{ github.action_path }}/triage-issue.sh
+
+    - name: "Upload Agent Output"
+      uses: actions/upload-artifact@v4
+      with:
+        name: agent-output
+        path: .agent/output.json
+        if-no-files-found: warn
+        retention-days: 7

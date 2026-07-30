@@ -1,0 +1,60 @@
+name: "Check Status"
+description: |
+  Watches all CI check runs on a commit and produces a clean merged status
+  summary. Agent can use this to determine if a PR is ready to merge or
+  what failed and where.
+
+author: "Heretek-AI"
+
+inputs:
+  github-token:
+    description: "GitHub token for API access"
+    default: "${{ github.token }}"
+    required: false
+  wait-for-completion:
+    description: "Poll until all checks complete (max seconds)"
+    default: "600"
+    required: false
+  poll-interval:
+    description: "Seconds between polls"
+    default: "15"
+    required: false
+
+outputs:
+  agent_action:
+    description: "Always 'check-status'"
+    value: "check-status"
+  status:
+    description: "success | failure | running | timeout"
+    value: ${{ steps.watch.outputs.status }}
+  summary:
+    description: "Check status summary"
+    value: ${{ steps.watch.outputs.summary }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Checkout"
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: "1"
+
+    - name: "Watch Checks"
+      id: watch
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        WAIT_MAX: ${{ inputs.wait-for-completion }}
+        POLL_INTERVAL: ${{ inputs.poll-interval }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        ${{ github.action_path }}/watch-checks.sh
+
+    - name: "Upload Agent Output"
+      uses: actions/upload-artifact@v4
+      with:
+        name: agent-output
+        path: .agent/output.json
+        if-no-files-found: warn
+        retention-days: 7

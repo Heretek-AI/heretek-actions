@@ -1,0 +1,74 @@
+name: "PR Summary"
+description: |
+  Analyzes a pull request diff and generates a structured summary with
+  file breakdown, change statistics, and linked issues.
+  Outputs both a PR comment and .agent/output.json.
+
+author: "Heretek-AI"
+
+inputs:
+  github-token:
+    description: "GitHub token for API access"
+    default: "${{ github.token }}"
+    required: false
+  max-files:
+    description: "Maximum files to include in detailed breakdown"
+    default: "50"
+    required: false
+  include-diff-stats:
+    description: "Include per-file diff stats in output"
+    default: "true"
+    required: false
+  include-suggested-reviewers:
+    description: "Suggest reviewers from CODEOWNERS"
+    default: "true"
+    required: false
+  post-comment:
+    description: "Post summary as a PR comment"
+    default: "true"
+    required: false
+
+outputs:
+  agent_action:
+    description: "Always 'pr-summary'"
+    value: "pr-summary"
+  status:
+    description: "success | failure"
+    value: ${{ steps.analyze.outputs.status }}
+  summary:
+    description: "PR summary text"
+    value: ${{ steps.analyze.outputs.summary }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Checkout"
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: "0"
+
+    - name: "Analyze PR"
+      id: analyze
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        MAX_FILES: ${{ inputs.max-files }}
+        INCLUDE_DIFF_STATS: ${{ inputs.include-diff-stats }}
+        INCLUDE_REVIEWERS: ${{ inputs.include-suggested-reviewers }}
+        POST_COMMENT: ${{ inputs.post-comment }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        PR_TITLE: ${{ github.event.pull_request.title }}
+        PR_BODY: ${{ github.event.pull_request.body }}
+        PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        PR_BASE: ${{ github.event.pull_request.base.ref }}
+        PR_HEAD: ${{ github.event.pull_request.head.ref }}
+      run: |
+        ${{ github.action_path }}/analyze-pr.sh
+
+    - name: "Upload Agent Output"
+      uses: actions/upload-artifact@v4
+      with:
+        name: agent-output
+        path: .agent/output.json
+        if-no-files-found: warn
+        retention-days: 7

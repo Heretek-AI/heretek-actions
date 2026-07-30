@@ -1,0 +1,26 @@
+name: "Agent Context"
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  generate-context:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Generate Agent Context"
+        uses: Heretek-AI/heretek-actions/.github/actions/agent-context@v1
+
+      - name: "Read Agent Output for Logging"
+        shell: bash
+        run: |
+          if [ -f .agent/output.json ]; then
+            echo "### Agent Context" >> $GITHUB_STEP_SUMMARY
+            cat .agent/output.json | jq -r '. | "\(.summary)"' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat .agent/output.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
