@@ -11,8 +11,6 @@
 #   AGENT_FINDINGS=...  — JSON array for the "findings" field
 #   AGENT_RELEASE=...   — JSON object for the "release" field
 
-set -euo pipefail
-
 : "${AGENT_OUTPUT_DIR:=${GITHUB_WORKSPACE:-.}/.agent}"
 : "${AGENT_ENVELOPE_FILE:=${AGENT_OUTPUT_DIR}/output.json}"
 
@@ -127,7 +125,7 @@ SUGGESTION
   if command -v jq &>/dev/null; then
     AGENT_SUGGESTIONS=$(echo "$AGENT_SUGGESTIONS" | jq --argjson s "$suggestion" '. + [$s]')
   else
-    AGENT_SUGGESTIONS=$(echo "$AGENT_SUGGESTIONS" | sed 's/\]$/,/' | (cat - && echo "${suggestion}]")
+    AGENT_SUGGESTIONS=$(echo "$AGENT_SUGGESTIONS" | sed 's/\]$/,/' | (cat - && echo "${suggestion}]"))
   fi
   export AGENT_SUGGESTIONS
 }
@@ -151,7 +149,7 @@ CHECK
   if command -v jq &>/dev/null; then
     AGENT_CHECKS=$(echo "$AGENT_CHECKS" | jq --argjson c "$check" '. + [$c]')
   else
-    AGENT_CHECKS=$(echo "$AGENT_CHECKS" | sed 's/\]$/,/' | (cat - && echo "${check}]")
+    AGENT_CHECKS=$(echo "$AGENT_CHECKS" | sed 's/\]$/,/' | (cat - && echo "${check}]"))
   fi
   export AGENT_CHECKS
 }
