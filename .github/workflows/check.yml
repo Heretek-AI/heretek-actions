@@ -209,9 +209,9 @@ jobs:
 
           for f in .agent/results/*.json; do
             if [ -f "$f" ]; then
-              STATUS=$(cat "$f" | jq -r '.status // "unknown"')
-              SUMMARY=$(cat "$f" | jq -r '.summary // ""')
-              ACTION=$(cat "$f" | jq -r '.agent_action // "unknown"')
+              STATUS=$(jq -r '.status // "unknown"' "$f" 2>/dev/null || echo "unknown")
+              SUMMARY=$(jq -r '.summary // ""' "$f" 2>/dev/null || echo "")
+              ACTION=$(jq -r '.agent_action // "unknown"' "$f" 2>/dev/null || echo "unknown")
               if [ "$STATUS" != "success" ]; then
                 ALL_PASS=false
               fi
@@ -230,11 +230,11 @@ jobs:
         run: |
           if [ -f .agent/output.json ]; then
             echo "## CI Check Results" >> $GITHUB_STEP_SUMMARY
-            cat .agent/output.json | jq -r '.summary' >> $GITHUB_STEP_SUMMARY
+            jq -r '.summary' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
             # Table
             echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-            cat .agent/output.json | jq -r '.checks[] | "| \(.name) | \(.status) |"' >> $GITHUB_STEP_SUMMARY
+            jq -r '.checks[] | "| \(.name) | \(.status) |"' >> $GITHUB_STEP_SUMMARY
           fi

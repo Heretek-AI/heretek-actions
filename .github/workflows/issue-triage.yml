@@ -23,5 +23,5 @@ jobs:
         run: |
           if [ -f .agent/output.json ]; then
             echo "### Issue Triage" >> $GITHUB_STEP_SUMMARY
-            cat .agent/output.json | jq -r '. | "\(.summary)"' >> $GITHUB_STEP_SUMMARY
+            jq -r '. | "\(.summary)"' >> $GITHUB_STEP_SUMMARY
           fi

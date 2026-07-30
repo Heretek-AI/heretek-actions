@@ -123,7 +123,7 @@ jobs:
           GH_TOKEN: ${{ secrets.repo_token || secrets.GITHUB_TOKEN }}
         run: |
           if [ -f .agent/output.json ]; then
-            FINDINGS=$(cat .agent/output.json | jq -c '.findings[] | select(.severity == "error")')
+            FINDINGS=$(jq -c '.findings[] | select(.severity == "error")')
             echo "$FINDINGS" | while IFS= read -r finding; do
               FILE=$(echo "$finding" | jq -r '.file // "unknown"')
               MESSAGE=$(echo "$finding" | jq -r '.message // ""')
@@ -144,16 +144,16 @@ jobs:
         run: |
           if [ -f .agent/output.json ]; then
             echo "## OCR Full Scan Results" >> $GITHUB_STEP_SUMMARY
-            cat .agent/output.json | jq -r '. | "- **Status**: \(.status)\n- **Summary**: \(.summary)"' >> $GITHUB_STEP_SUMMARY
+            jq -r '. | "- **Status**: \(.status)\n- **Summary**: \(.summary)"' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            FINDINGS_COUNT=$(cat .agent/output.json | jq '.findings | length' 2>/dev/null || echo 0)
+            FINDINGS_COUNT=$(jq '.findings | length' 2>/dev/null || echo 0)
             echo "**Total findings: ${FINDINGS_COUNT}**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
             if [ "$FINDINGS_COUNT" -gt 0 ] && [ "$FINDINGS_COUNT" -le 30 ]; then
               echo "| Severity | Rule | File |" >> $GITHUB_STEP_SUMMARY
               echo "|----------|------|------|" >> $GITHUB_STEP_SUMMARY
-              cat .agent/output.json | jq -r '.findings[] | "| \(.severity) | \(.rule) | `\(.file)` |"' >> $GITHUB_STEP_SUMMARY
+              jq -r '.findings[] | "| \(.severity) | \(.rule) | `\(.file)` |"' >> $GITHUB_STEP_SUMMARY
             fi
           fi
