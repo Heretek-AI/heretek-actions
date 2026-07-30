@@ -47,6 +47,38 @@ jobs:
 
 Then any **AI agent** can read `.agent/output.json` to understand your repo, triaged issues, and PR summaries — in one file.
 
+### AI-Powered Code Review (Open Code Review)
+
+Add AI-powered code review that runs on every PR:
+
+```yaml
+name: PR Review
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+jobs:
+  review:
+    uses: Heretek-AI/heretek-actions/.github/workflows/ocr-review.yml@v1
+    secrets:
+      ocr-llm-url: ${{ secrets.OCR_LLM_URL }}
+      ocr-llm-token: ${{ secrets.OCR_LLM_TOKEN }}
+```
+
+You can also trigger a full codebase scan manually:
+
+```yaml
+name: Codebase Scan
+on: workflow_dispatch
+jobs:
+  scan:
+    uses: Heretek-AI/heretek-actions/.github/workflows/ocr-scan.yml@v1
+    secrets:
+      ocr-llm-url: ${{ secrets.OCR_LLM_URL }}
+      ocr-llm-token: ${{ secrets.OCR_LLM_TOKEN }}
+```
+
+**Requirements:** Configure [secrets/vars](#open-code-review-configuration) with your LLM API credentials.
+
 ### CI Checks
 
 ```yaml
@@ -91,6 +123,8 @@ All agent actions emit `.agent/output.json` with the [Standard Envelope](#agent-
 | [`issue-triage`](.github/actions/issue-triage/) | issues.opened | Classifies issues, applies labels, detects duplicates | Agent reads classification, responds or closes |
 | [`check-status`](.github/actions/check-status/) | check_run (via workflow_call) | Watches all CI checks, produces merged status | Agent knows when to merge or investigate |
 | [`review`](.github/actions/review/) | pull_request | Lightweight structural analysis (TODOs, missing tests, hardcoded secrets, debug logs, focused tests) | Agent gets findings array and creates issues |
+| [`ocr-review`](.github/workflows/ocr-review.yml) | pull_request_target | AI-powered PR review via Open Code Review (LLM-backed) | Agent reads findings and suggested issues |
+| [`ocr-scan`](.github/workflows/ocr-scan.yml) | workflow_dispatch | Full codebase scan via Open Code Review | Agent reads findings across all files |
 
 ### `agent-context` — Understand Any Repo Fast
 
@@ -230,6 +264,63 @@ jobs:
 ```
 
 Supports `docker`, `flatpak`, `npm`, and `github-release` as release types.
+
+### `ocr-review.yml` — AI-Powered PR Review
+
+```yaml
+jobs:
+  review:
+    uses: Heretek-AI/heretek-actions/.github/workflows/ocr-review.yml@v1
+    secrets:
+      ocr-llm-url: ${{ secrets.OCR_LLM_URL }}
+      ocr-llm-token: ${{ secrets.OCR_LLM_TOKEN }}
+```
+
+Uses [Open Code Review](https://open-codereview.ai) to analyze pull requests with an LLM. Comments inline, produces `.agent/output.json`. Also supports re-triggering via `/open-code-review` or `@open-code-review` comments on the PR. For `workflow_call`, pass secrets as shown above.
+
+**Required secrets:** `ocr-llm-url`, `ocr-llm-token`
+
+### `ocr-scan.yml` — Full Codebase Scan
+
+```yaml
+jobs:
+  scan:
+    uses: Heretek-AI/heretek-actions/.github/workflows/ocr-scan.yml@v1
+    secrets:
+      ocr-llm-url: ${{ secrets.OCR_LLM_URL }}
+      ocr-llm-token: ${{ secrets.OCR_LLM_TOKEN }}
+    with:
+      scan-path: "."
+      ocr-use-anthropic: "true"
+```
+
+Triggered manually (`workflow_dispatch`) or via `workflow_call`. Scans the entire repo (or a sub-path) and reports findings in `.agent/output.json`. Supports opt-in issue creation from findings.
+
+---
+
+## Open Code Review Configuration
+
+Both OCR workflows require LLM credentials. Set these as [GitHub secrets/variables](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions):
+
+| Secret/Variable | Type | Description | Example |
+|----------------|------|-------------|---------|
+| `OCR_LLM_URL` | secret | LLM API endpoint | `https://api.anthropic.com/v1/messages` |
+| `OCR_LLM_TOKEN` | secret | API authentication token | `sk-ant-...` |
+| `OCR_LLM_MODEL` | variable | Model name | `claude-sonnet-4-20250514` |
+| `OCR_LLM_USE_ANTHROPIC` | variable | Protocol selection | `true` (Anthropic) or `false` (OpenAI) |
+
+Pass them in your workflow:
+
+```yaml
+jobs:
+  review:
+    uses: Heretek-AI/heretek-actions/.github/workflows/ocr-review.yml@v1
+    secrets:
+      ocr-llm-url: ${{ secrets.OCR_LLM_URL }}
+      ocr-llm-token: ${{ secrets.OCR_LLM_TOKEN }}
+```
+
+When referencing via `workflow_call`, the input names use hyphens (`ocr-llm-url`, `ocr-llm-token`); the GitHub UI and direct trigger use underscore-named env vars (`OCR_LLM_URL`, `OCR_LLM_TOKEN`). You only need to configure the underscore-named ones in your repo settings.
 
 ---
 

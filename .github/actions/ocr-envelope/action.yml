@@ -1,0 +1,45 @@
+name: "OCR Agent Envelope"
+description: |
+  Reads Open Code Review output and writes a standardized .agent/output.json
+  with findings, status, and suggestions for agent consumption.
+
+author: "Heretek-AI"
+
+inputs:
+  ocr-result-file:
+    description: "Path to OCR's JSON result file"
+    default: ".ocr/result.json"
+    required: false
+  ocr-command:
+    description: "OCR command that was run (review or scan)"
+    default: "review"
+    required: false
+  github-token:
+    description: "GitHub token"
+    default: "${{ github.token }}"
+    required: false
+
+outputs:
+  agent_action:
+    description: "Always 'ocr-review' or 'ocr-scan'"
+    value: ${{ steps.envelope.outputs.agent_action }}
+  status:
+    description: "success | failure | partial"
+    value: ${{ steps.envelope.outputs.status }}
+  summary:
+    description: "OCR summary"
+    value: ${{ steps.envelope.outputs.summary }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Build Agent Envelope"
+      id: envelope
+      shell: bash
+      env:
+        OCR_RESULT_FILE: ${{ inputs.ocr-result-file }}
+        OCR_COMMAND: ${{ inputs.ocr-command }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        AGENT_ACTION_PATH: ${{ github.action_path }}
+      run: |
+        "${AGENT_ACTION_PATH}/build-envelope.sh"

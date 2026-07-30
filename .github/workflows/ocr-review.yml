@@ -1,0 +1,160 @@
+name: "OCR PR Review"
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+  workflow_call:
+    secrets:
+      ocr-llm-url:
+        description: "LLM API endpoint URL (e.g. https://api.anthropic.com/v1/messages)"
+        required: true
+      ocr-llm-token:
+        description: "LLM API authentication token"
+        required: true
+      github-token:
+        description: "GitHub token with pull-requests: write permission"
+        required: false
+    inputs:
+      ocr-llm-model:
+        description: "LLM model name (e.g. claude-sonnet-4-20250514)"
+        type: string
+        required: false
+        default: ""
+      ocr-use-anthropic:
+        description: "Set to true for Anthropic protocol, false for OpenAI"
+        type: string
+        required: false
+        default: "true"
+      ocr-llm-auth-header:
+        description: "Custom auth header name (default: x-api-key for Anthropic)"
+        type: string
+        required: false
+        default: ""
+
+concurrency:
+  group: >-
+    ${{
+      (github.event_name == 'pull_request_target' ||
+       (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        github.event.comment.author_association != 'BOT' &&
+        contains(fromJson('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association) &&
+        (startsWith(github.event.comment.body, '/open-code-review') ||
+         startsWith(github.event.comment.body, '@open-code-review'))))
+      && format('ocr-{0}', github.event.pull_request.number || github.event.issue.number)
+      || format('noop-{0}', github.run_id)
+    }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # When triggered by issue_comment, the PR context isn't in the event payload
+  # We need to fetch it via the GitHub API
+  get-pr-context:
+    if: github.event_name == 'issue_comment'
+    runs-on: ubuntu-latest
+    outputs:
+      base_ref: ${{ steps.context.outputs.base_ref }}
+      head_sha: ${{ steps.context.outputs.head_sha }}
+    steps:
+      - name: "Get PR Context"
+        id: context
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.github-token || secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            core.setOutput('base_ref', pr.data.base.ref);
+            core.setOutput('head_sha', pr.data.head.sha);
+
+  # Pull_request_target events have the PR context directly in the event payload.
+  # Issue_comment events need the get-pr-context job to fetch it.
+  # We use separate approach: for pull_request_target, we reference event directly;
+  # for issue_comment, we need the get-pr-context outputs.
+  # Since we can't conditionally set needs, we handle both branches in one job
+  # with an if condition that guards access to needs values.
+  ocr-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: >-
+      github.event_name == 'pull_request_target' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       !contains(fromJson('["BOT"]'), github.event.committer.type) &&
+       contains(fromJson('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association) &&
+       (startsWith(github.event.comment.body, '/open-code-review') ||
+        startsWith(github.event.comment.body, '@open-code-review')))
+    steps:
+      # For pull_request_target, the SHA is in the event; for issue_comment we
+      # fetch it via the API. When triggered by pull_request_target, this is a
+      # no-op (the ref is resolved inline below).
+      - name: "Get PR Context (issue_comment fallback)"
+        id: context
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.github-token || secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            core.setOutput('base_ref', pr.data.base.ref);
+            core.setOutput('head_sha', pr.data.head.sha);
+
+      - name: "Checkout"
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || steps.context.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: "Run Open Code Review"
+        id: ocr
+        uses: alibaba/open-code-review@main
+        with:
+          github_token: ${{ secrets.github-token || secrets.GITHUB_TOKEN }}
+          llm_url: ${{ secrets.ocr-llm-url }}
+          llm_auth_token: ${{ secrets.ocr-llm-token }}
+          llm_model: ${{ inputs.ocr-llm-model || vars.OCR_LLM_MODEL || 'claude-sonnet-4-20250514' }}
+          llm_use_anthropic: ${{ inputs.ocr-use-anthropic || vars.OCR_LLM_USE_ANTHROPIC || 'true' }}
+          base_ref: ${{ github.event.pull_request.base.ref || steps.context.outputs.base_ref }}
+          head_sha: ${{ github.event.pull_request.head.sha || steps.context.outputs.head_sha }}
+
+      - name: "Build Agent Envelope"
+        uses: Heretek-AI/heretek-actions/.github/actions/ocr-envelope@v1
+        with:
+          ocr-command: review
+          ocr-result-file: .ocr/result.json
+          github-token: ${{ secrets.github-token || secrets.GITHUB_TOKEN }}
+
+      - name: "Upload Agent Output"
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-output-ocr-review
+          path: .agent/output.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: "Summarize"
+        shell: bash
+        run: |
+          if [ -f .agent/output.json ]; then
+            echo "## OCR Review Results" >> $GITHUB_STEP_SUMMARY
+            cat .agent/output.json | jq -r '. | "- **Status**: \(.status)\n- **Summary**: \(.summary)"' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            FINDINGS=$(cat .agent/output.json | jq '.findings | length' 2>/dev/null || echo 0)
+            if [ "$FINDINGS" -gt 0 ] && [ "$FINDINGS" -le 20 ]; then
+              echo "### Findings" >> $GITHUB_STEP_SUMMARY
+              cat .agent/output.json | jq -r '.findings[] | "- `\(.file // "?")`:\(.line // "?") — \(.message)"' >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
