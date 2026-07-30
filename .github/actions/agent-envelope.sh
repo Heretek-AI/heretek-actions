@@ -24,47 +24,47 @@ write_envelope() {
   local created_at
   created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-  # Build envelope via jq if available, otherwise cat+json
-  if command -v jq &>/dev/null; then
-    jq -n \
-      --arg action "$action" \
-      --arg version "1.0" \
-      --arg status "$status" \
-      --arg summary "$summary" \
-      --arg created_at "$created_at" \
-      --arg duration_ms "${AGENT_DURATION_MS:-0}" \
-      --argjson outputs "${AGENT_OUTPUTS:-{}}" \
-      --argjson suggestions "${AGENT_SUGGESTIONS:-[]}" \
-      --argjson checks "${AGENT_CHECKS:-[]}" \
-      --argjson findings "${AGENT_FINDINGS:-[]}" \
-      --argjson release "${AGENT_RELEASE:-null}" \
-      --arg repo_owner "${GITHUB_REPOSITORY_OWNER:-}" \
-      --arg repo_name "${GITHUB_REPOSITORY#*/}" \
-      --arg sha "${GITHUB_SHA:-}" \
-      --arg ref "${GITHUB_REF:-}" \
-      --arg workflow "${GITHUB_WORKFLOW:-}" \
-      --arg run_id "${GITHUB_RUN_ID:-}" \
-      '{
-        agent_action: $action,
-        version: $version,
-        status: $status,
-        summary: $summary,
-        created_at: $created_at,
-        duration_ms: ($duration_ms | tonumber),
-        outputs: $outputs,
-        suggestions: $suggestions,
-        checks: $checks,
-        findings: $findings,
-        release: $release,
-        repository: {
-          owner: $repo_owner,
-          repo: $repo_name,
-          sha: $sha,
-          ref: $ref,
-          workflow: $workflow,
-          run_id: ($run_id | tonumber?)
-        }
-      }' > "$AGENT_ENVELOPE_FILE"
+  # Build envelope — prefer jq, fall back to cat
+  if command -v jq &>/dev/null && jq -n \
+    --arg action "$action" \
+    --arg version "1.0" \
+    --arg status "$status" \
+    --arg summary "$summary" \
+    --arg created_at "$created_at" \
+    --arg duration_ms "${AGENT_DURATION_MS:-0}" \
+    --argjson outputs "${AGENT_OUTPUTS:-{}}" \
+    --argjson suggestions "${AGENT_SUGGESTIONS:-[]}" \
+    --argjson checks "${AGENT_CHECKS:-[]}" \
+    --argjson findings "${AGENT_FINDINGS:-[]}" \
+    --argjson release "${AGENT_RELEASE:-null}" \
+    --arg repo_owner "${GITHUB_REPOSITORY_OWNER:-}" \
+    --arg repo_name "${GITHUB_REPOSITORY#*/}" \
+    --arg sha "${GITHUB_SHA:-}" \
+    --arg ref "${GITHUB_REF:-}" \
+    --arg workflow "${GITHUB_WORKFLOW:-}" \
+    --arg run_id "${GITHUB_RUN_ID:-}" \
+    '{
+      agent_action: $action,
+      version: $version,
+      status: $status,
+      summary: $summary,
+      created_at: $created_at,
+      duration_ms: ($duration_ms | tonumber),
+      outputs: $outputs,
+      suggestions: $suggestions,
+      checks: $checks,
+      findings: $findings,
+      release: $release,
+      repository: {
+        owner: $repo_owner,
+        repo: $repo_name,
+        sha: $sha,
+        ref: $ref,
+        workflow: $workflow,
+        run_id: ($run_id | tonumber?)
+      }
+    }' > "$AGENT_ENVELOPE_FILE" 2>/dev/null; then
+    :  # jq succeeded
   else
     # Fallback — simple JSON without jq
     cat > "$AGENT_ENVELOPE_FILE" <<ENVELOPE

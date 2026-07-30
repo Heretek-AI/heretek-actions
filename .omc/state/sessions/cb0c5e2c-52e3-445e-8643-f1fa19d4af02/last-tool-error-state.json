@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"pip install pyyaml -q && python3 -c \\\"\\nimport yaml, sys\\nfor f in ['.github/workflows/ocr-review.yml', '.github/workflows/ocr-scan.yml', '.github/workflows/release.yml', '.github/workflow...",
-  "error": "Exit code 1\nTraceback (most recent call last):\n  File \"<string>\", line 2, in <module>\n    import yaml, sys\nModuleNotFoundError: No module named 'yaml'",
-  "timestamp": "2026-07-30T15:21:30.122Z",
-  "retry_count": 3
+  "tool_input_preview": "{\"command\":\"bash -n /home/john/Projects/heretek-actions/.github/actions/agent-envelope.sh && echo \\\"Syntax OK\\\"\",\"description\":\"Verify agent-envelope.sh syntax\"}",
+  "error": "Exit code 2\n/home/john/Projects/heretek-actions/.github/actions/agent-envelope.sh: line 109: syntax error near unexpected token `}'\n/home/john/Projects/heretek-actions/.github/actions/agent-envelope.sh: line 109: `}'",
+  "timestamp": "2026-07-30T15:38:13.258Z",
+  "retry_count": 2
 }
