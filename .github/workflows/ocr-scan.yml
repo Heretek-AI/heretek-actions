@@ -12,10 +12,20 @@ on:
         type: string
         required: false
         default: ""
+      ocr-concurrency:
+        description: "Number of parallel per-file sub-agents"
+        type: string
+        required: false
+        default: "5"
+      ocr-no-plan:
+        description: "Skip PLAN_TASK pre-pass ('true' for speed, 'false' for max quality)"
+        type: string
+        required: false
+        default: "true"
   workflow_call:
     secrets:
       ocr_llm_url:
-        description: "LLM API endpoint URL (e.g. https://api.anthropic.com/v1/messages)"
+        description: "LLM API endpoint URL (e.g. https://api.deepseek.com/anthropic)"
         required: true
       ocr_llm_token:
         description: "LLM API authentication token"
@@ -24,7 +34,7 @@ on:
         description: "GitHub token (defaults to GITHUB_TOKEN)"
         required: false
       ocr_llm_model:
-        description: "LLM model name (e.g. claude-sonnet-4-20250514). Falls back to input ocr-llm-model, then vars.OCR_LLM_MODEL, then default."
+        description: "LLM model name (e.g. deepseek-v4-flash). Falls back to input ocr-llm-model, then vars.OCR_LLM_MODEL, then default."
         required: false
     inputs:
       scan-path:
@@ -38,10 +48,25 @@ on:
         required: false
         default: ""
       ocr-use-anthropic:
-        description: "Set to true for Anthropic protocol, false for OpenAI"
+        description: "Set to 'true' for Anthropic protocol, 'false' for OpenAI"
         type: string
         required: false
         default: "true"
+      ocr-concurrency:
+        description: "Number of parallel per-file sub-agents"
+        type: string
+        required: false
+        default: "5"
+      ocr-no-plan:
+        description: "Skip PLAN_TASK pre-pass ('true' for speed, 'false' for max quality)"
+        type: string
+        required: false
+        default: "true"
+      ocr-llm-auth-header:
+        description: "Custom auth header name (default: x-api-key for Anthropic)"
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -57,35 +82,46 @@ jobs:
         with:
           fetch-depth: "0"
 
-      - name: "Install and Configure OCR"
-        id: setup
+      - name: "Install Open Code Review"
+        shell: bash
+        run: |
+          npm install -g @alibaba-group/open-code-review@1.8.1
+          echo "✅ ocr installed: $(ocr --version 2>&1 || true)"
+
+      - name: "Configure LLM"
+        id: config
         shell: bash
         env:
           OCR_LLM_URL: ${{ secrets.ocr_llm_url }}
           OCR_LLM_TOKEN: ${{ secrets.ocr_llm_token }}
-          OCR_LLM_MODEL: ${{ secrets.ocr_llm_model || inputs.ocr-llm-model || vars.OCR_LLM_MODEL || 'claude-sonnet-4-20250514' }}
+          OCR_LLM_MODEL: ${{ secrets.ocr_llm_model || inputs.ocr-llm-model || vars.OCR_LLM_MODEL || 'deepseek-v4-flash' }}
           OCR_USE_ANTHROPIC: ${{ inputs.ocr-use-anthropic || vars.OCR_LLM_USE_ANTHROPIC || 'true' }}
         run: |
-          # Install OCR CLI globally (puts ocr on PATH)
-          npm install -g @alibaba-group/open-code-review
-
-          echo "✅ ocr installed: $(ocr --version 2>&1 || true)"
-
           # Verify scan subcommand exists
           if ! ocr scan --help >/dev/null 2>&1; then
             echo "❌ 'ocr scan' subcommand not found"
             exit 1
           fi
 
-          # Configure LLM from workflow secrets using official CI pattern
-          # See: https://github.com/alibaba/open-code-review/blob/main/pages/src/content/docs/en/integrations/ci.md
-          ocr config set llm.url "${OCR_LLM_URL}"
-          ocr config set llm.auth_token "${OCR_LLM_TOKEN}"
-          ocr config set llm.model "${OCR_LLM_MODEL}"
-          ocr config set llm.use_anthropic "${OCR_USE_ANTHROPIC}"
+          # Determine protocol from use_anthropic flag
+          if [ "${OCR_USE_ANTHROPIC}" = "true" ]; then
+            PROTOCOL="anthropic"
+          else
+            PROTOCOL="openai"
+          fi
+          echo "Protocol: ${PROTOCOL}"
+
+          # Configure LLM via custom provider (new recommended pattern)
+          ocr config set provider heretek-deepseek
+          ocr config set custom_providers.heretek-deepseek.url "${OCR_LLM_URL}"
+          ocr config set custom_providers.heretek-deepseek.protocol "${PROTOCOL}"
+          ocr config set custom_providers.heretek-deepseek.model "${OCR_LLM_MODEL}"
+          ocr config set custom_providers.heretek-deepseek.api_key "${OCR_LLM_TOKEN}"
           ocr config set llm.extra_body '{"thinking": {"type": "disabled"}}'
 
-          # Test LLM connectivity
+      - name: "Validate LLM Configuration"
+        shell: bash
+        run: |
           echo "🔌 Testing LLM connection..."
           ocr llm test
 
@@ -94,17 +130,26 @@ jobs:
         shell: bash
         env:
           SCAN_PATH: ${{ inputs.scan-path || github.event.inputs.scan-path || '.' }}
+          OCR_CONCURRENCY: ${{ inputs.ocr-concurrency || '5' }}
+          OCR_NO_PLAN: ${{ inputs.ocr-no-plan || 'true' }}
         run: |
           mkdir -p .ocr
 
           echo "🔍 Scanning: ${SCAN_PATH}"
+          echo "   Concurrency: ${OCR_CONCURRENCY}"
+          echo "   No-Plan: ${OCR_NO_PLAN}"
 
-          # Run full repo scan — JSON output goes to stdout with --audience agent
-          # Model is already configured via ocr config set in setup step
-          ocr scan \
-            --path "${SCAN_PATH}" \
-            --format json \
-            --audience agent \
+          # Build flags
+          FLAGS=""
+          FLAGS="${FLAGS} --path \"${SCAN_PATH}\""
+          FLAGS="${FLAGS} --concurrency \"${OCR_CONCURRENCY}\""
+          if [ "${OCR_NO_PLAN}" = "true" ]; then
+            FLAGS="${FLAGS} --no-plan"
+          fi
+          FLAGS="${FLAGS} --format json --audience agent"
+
+          # Run scan — JSON output to stdout, stderr to file
+          eval ocr scan ${FLAGS} \
             > .ocr/result.json 2>.ocr/scan-stderr.txt
 
           # Show stderr (if any) for debugging
@@ -113,7 +158,7 @@ jobs:
           fi
 
           if [ -s .ocr/result.json ]; then
-            echo "✅ OCR results saved to .ocr/result.json"
+            echo "✅ OCR scan results saved to .ocr/result.json"
           else
             echo "⚠️ No JSON output from OCR scan — scan produced no results or failed"
             rm -f .ocr/result.json
@@ -137,7 +182,7 @@ jobs:
           retention-days: 30
 
       - name: "Create Issues from Findings (opt-in)"
-        if: false  # Disabled by default — enable by changing to 'if: true'
+        if: ${{ false }}  # Disabled by default — enable by changing to 'if: true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.repo_token || secrets.GITHUB_TOKEN }}
